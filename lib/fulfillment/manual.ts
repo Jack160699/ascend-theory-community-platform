@@ -7,7 +7,7 @@ export class ManualFulfillmentAdapter implements FulfillmentAdapter {
 
   async submitOrder(order: Order): Promise<FulfillmentResult> {
     console.info("[fulfillment:manual]", order.id, {
-      items: order.items.map((i) => `${i.slug}×${i.quantity}`),
+      items: order.items.map((i) => `${i.slug}${i.size ? `/${i.size}` : ""}×${i.quantity}`),
       customer: order.customer.email,
     });
     return { provider: "manual", status: "queued" };

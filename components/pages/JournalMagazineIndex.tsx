@@ -15,6 +15,7 @@ import {
 import { JOURNAL_EASE } from "@/lib/motion/journal-motion";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import type { CSSProperties } from "react";
 
 export function JournalMagazineIndex() {
   const reduce = useReducedMotion();
@@ -54,6 +55,9 @@ export function JournalMagazineIndex() {
           {JOURNAL_ISSUES.map((issue) => (
             <motion.article
               key={issue.slug}
+              className="journal-issue"
+              data-look={issue.look.key}
+              style={{ "--j-tone": issue.look.tone, "--j-ground": issue.look.ground } as CSSProperties}
               variants={{
                 hidden: { opacity: 0, y: 40 },
                 visible: {
@@ -90,6 +94,19 @@ export function JournalMagazineIndex() {
                   </div>
                   <p className="journal-issue-card__enter">Enter issue →</p>
                 </div>
+              </Link>
+              <Link
+                href={BRAND_ROUTES.drop(issue.look.productSlug)}
+                className="journal-issue__print"
+                aria-label={`Shop the ${issue.look.productName}`}
+              >
+                <span className="journal-issue__print-art" style={{ aspectRatio: String(issue.look.print.ratio) }}>
+                  <AscendImage src={issue.look.print.image} alt="" fill sizes="64px" className="object-contain" />
+                </span>
+                <span className="journal-issue__print-copy">
+                  <span>Print {issue.look.print.number} · {issue.look.print.title}</span>
+                  <b>Shop the tee →</b>
+                </span>
               </Link>
             </motion.article>
           ))}

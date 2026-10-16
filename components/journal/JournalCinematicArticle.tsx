@@ -9,7 +9,7 @@ import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { useReducedMotion } from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 
 type JournalCinematicArticleProps = {
   article: JournalArticle;
@@ -42,14 +42,24 @@ export function JournalCinematicArticle({ article }: JournalCinematicArticleProp
   }, [article.slug, reduce]);
 
   return (
-    <div className="journal-immersive journal-immersive--native">
+    <div
+      className="journal-immersive journal-immersive--native"
+      data-look={article.look.key}
+      style={
+        {
+          "--j-tone": article.look.tone,
+          "--j-ground": article.look.ground,
+          "--j-second": article.look.second,
+        } as CSSProperties
+      }
+    >
       <JournalMinimalNav
         backHref={BRAND_ROUTES.journal}
         backLabel="Journal"
       />
       <article className="journal-article-flow">
         {article.scenes.map((scene, index) => (
-          <JournalScene key={scene.id} scene={scene} index={index} />
+          <JournalScene key={scene.id} scene={scene} index={index} motionStyle={article.look.motion} />
         ))}
       </article>
       <div className="journal-article-explore">

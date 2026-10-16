@@ -5,6 +5,7 @@
 @import "../styles/brand-pages.css";
 @import "../styles/journal-cinematic.css";
 @import "../styles/collab.css";
+@import "../styles/print-product.css";
 
 :root {
   /* Cinematic V2 — scroll progression (set by MasterSceneOrchestrator; defaults for SSR) */

@@ -97,11 +97,12 @@ export function OrderConfirmation() {
 
       <ul className="order-confirmation__items mt-8">
         {order.items.map((item) => (
-          <li key={item.slug} className="order-confirmation__item">
+          <li key={`${item.slug}-${item.size ?? ""}`} className="order-confirmation__item">
             <div>
               <p className="order-confirmation__name">{item.name}</p>
               <p className="brand-prose-tight mt-1">
-                {item.dropName} · Qty {item.quantity}
+                {item.dropName}
+                {item.size ? ` · Size ${item.size}` : ""} · Qty {item.quantity}
               </p>
             </div>
             <p className="order-confirmation__price">

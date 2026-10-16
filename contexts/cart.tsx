@@ -3,7 +3,7 @@
 import { getCartProduct, getDefaultCartProduct } from "@/lib/cart/catalog";
 import { cartSubtotal } from "@/lib/cart/format";
 import { clearCart, readCart, writeCart } from "@/lib/cart/storage";
-import type { CartLine, CartProduct } from "@/lib/cart/types";
+import { cartLineKey, type CartLine, type CartProduct } from "@/lib/cart/types";
 import { event } from "@/lib/fpixel";
 import {
   createContext,
@@ -28,9 +28,9 @@ type CartContextValue = {
   openDrawer: () => void;
   closeDrawer: () => void;
   addDefaultProduct: () => void;
-  addProduct: (slug: string) => void;
-  setQuantity: (slug: string, quantity: number) => void;
-  removeLine: (slug: string) => void;
+  addProduct: (slug: string, size?: string, options?: { openDrawer?: boolean }) => void;
+  setQuantity: (key: string, quantity: number) => void;
+  removeLine: (key: string) => void;
   clear: () => void;
 };
 
@@ -88,54 +88,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const addProduct = useCallback((slug: string) => {
+  const addProduct = useCallback((slug: string, size?: string, options?: { openDrawer?: boolean }) => {
     const product = getCartProduct(slug);
     if (!product) return;
+    if (product.sizes?.length && (!size || !product.sizes.includes(size))) return;
+    const chosenSize = product.sizes?.length ? size : undefined;
+    const key = cartLineKey({ slug: product.slug, size: chosenSize });
 
     setLines((prev) => {
-      const existing = prev.find((l) => l.slug === product.slug);
-      const nextQty = existing
-        ? clampQuantity(product, existing.quantity + 1)
-        : 1;
-      const next = existing
-        ? prev.map((l) =>
-            l.slug === product.slug ? { ...l, quantity: nextQty } : l,
-          )
-        : [...prev, { slug: product.slug, quantity: 1 }];
-
-      return next;
+      const existing = prev.find((l) => cartLineKey(l) === key);
+      if (existing) {
+        const nextQty = clampQuantity(product, existing.quantity + 1);
+        return prev.map((l) => (cartLineKey(l) === key ? { ...l, quantity: nextQty } : l));
+      }
+      const line: CartLine = chosenSize
+        ? { slug: product.slug, quantity: 1, size: chosenSize }
+        : { slug: product.slug, quantity: 1 };
+      return [...prev, line];
     });
 
     event("AddToCart", {
-      content_name: product.name,
+      content_name: chosenSize ? `${product.name} — ${chosenSize}` : product.name,
       content_ids: [product.slug],
       content_type: "product",
       value: product.price,
       currency: product.currency,
     });
 
-    setDrawerOpen(true);
+    if (options?.openDrawer !== false) setDrawerOpen(true);
   }, []);
 
   const addDefaultProduct = useCallback(() => {
     addProduct(getDefaultCartProduct().slug);
   }, [addProduct]);
 
-  const setQuantity = useCallback((slug: string, quantity: number) => {
-    const product = getCartProduct(slug);
-    if (!product) return;
-    if (quantity < 1) {
-      setLines((prev) => prev.filter((l) => l.slug !== slug));
-      return;
-    }
-    const qty = clampQuantity(product, quantity);
-    setLines((prev) =>
-      prev.map((l) => (l.slug === slug ? { ...l, quantity: qty } : l)),
-    );
+  const setQuantity = useCallback((key: string, quantity: number) => {
+    setLines((prev) => {
+      const line = prev.find((l) => cartLineKey(l) === key);
+      const product = line ? getCartProduct(line.slug) : undefined;
+      if (!line || !product) return prev;
+      if (quantity < 1) return prev.filter((l) => cartLineKey(l) !== key);
+      const qty = clampQuantity(product, quantity);
+      return prev.map((l) => (cartLineKey(l) === key ? { ...l, quantity: qty } : l));
+    });
   }, []);
 
-  const removeLine = useCallback((slug: string) => {
-    setLines((prev) => prev.filter((l) => l.slug !== slug));
+  const removeLine = useCallback((key: string) => {
+    setLines((prev) => prev.filter((l) => cartLineKey(l) !== key));
   }, []);
 
   const clear = useCallback(() => {

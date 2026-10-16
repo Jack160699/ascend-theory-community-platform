@@ -40,7 +40,10 @@ export function CartLineItem({
         <Link href={BRAND_ROUTES.drop(line.slug)} className="cart-line__name">
           {product.name}
         </Link>
-        <p className="cart-line__unit">{product.priceDisplay}</p>
+        <p className="cart-line__unit">
+          {line.size ? <span className="cart-line__size">Size {line.size} · </span> : null}
+          {product.priceDisplay}
+        </p>
 
         <div className="cart-line__qty">
           <button

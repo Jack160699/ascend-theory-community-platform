@@ -1078,3 +1078,421 @@ body.journal-article-chrome .ascend-global-grain {
     animation: none;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Issue looks — each issue themed to its NRATLU print.
+   data-look: ember (Discipline · ride), ascent (Silence · rise),
+   unmask (Presence · unmask). Vars: --j-tone, --j-ground, --j-second.
+   ───────────────────────────────────────────────────────────── */
+
+.journal-immersive[data-look] {
+  background: var(--j-ground);
+}
+
+.journal-immersive[data-look] .ascend-media {
+  filter: none;
+}
+
+.journal-immersive[data-look] :is(
+  .journal-scene--intro,
+  .journal-scene--byline,
+  .journal-scene--signature,
+  .journal-scene--typography,
+  .journal-scene--text
+) {
+  background: var(--j-ground);
+}
+
+.journal-immersive[data-look] .journal-scene--outro {
+  background: radial-gradient(ellipse at 50% 120%, color-mix(in srgb, var(--j-tone) 18%, transparent), transparent 60%), #000;
+}
+
+.journal-immersive[data-look] .journal-scene__kicker,
+.journal-immersive[data-look] .journal-scene__section-heading {
+  color: color-mix(in srgb, var(--j-tone) 70%, white);
+}
+
+.journal-immersive[data-look] .journal-scene__intro-bottom-fade {
+  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--j-ground) 40%, transparent) 45%, var(--j-ground) 100%);
+}
+
+.journal-immersive[data-look] .journal-scene__media--full .journal-scene__vignette {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--j-ground) 94%, transparent) 0%,
+    color-mix(in srgb, var(--j-ground) 15%, transparent) 48%,
+    color-mix(in srgb, var(--j-ground) 40%, transparent) 100%
+  );
+}
+
+.journal-immersive[data-look] .journal-scene__media-overlay {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--j-ground) 25%, transparent) 0%,
+    color-mix(in srgb, var(--j-ground) 45%, transparent) 55%,
+    color-mix(in srgb, var(--j-ground) 90%, transparent) 100%
+  );
+}
+
+.journal-immersive[data-look] .journal-scene__media-dim {
+  filter: none;
+}
+
+.journal-immersive[data-look] .journal-scene__statement--overlay {
+  color: #fff;
+}
+
+.journal-immersive[data-look] .journal-scene--typography .journal-scene__statement {
+  color: color-mix(in srgb, var(--j-second) 25%, #f5f2ed);
+}
+
+/* Intro — the print itself, dark and moving in the issue's way */
+.journal-scene__intro-art {
+  position: absolute;
+  inset: -6%;
+  z-index: 1;
+  filter: brightness(0.3) saturate(1.05) blur(2px);
+}
+
+.journal-immersive[data-look] .journal-scene__intro-content {
+  position: relative;
+  z-index: 5;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.65);
+}
+
+.journal-immersive[data-look] .journal-scene__intro-line--secondary {
+  color: rgba(245, 242, 237, 0.82);
+}
+
+.journal-scene__intro-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 30%, color-mix(in srgb, var(--j-ground, #030303) 85%, transparent) 100%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .journal-scene__intro-art--ride {
+    animation: j-ride 22s ease-in-out infinite alternate;
+  }
+  .journal-scene__intro-art--rise {
+    animation: j-rise 26s ease-in-out infinite alternate;
+  }
+  .journal-scene__intro-art--unmask {
+    animation: j-breathe 18s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes j-ride {
+  from {
+    transform: translateX(-3%) scale(1.04);
+  }
+  to {
+    transform: translateX(3%) scale(1.04);
+  }
+}
+
+@keyframes j-rise {
+  from {
+    transform: translateY(3%) scale(1.06);
+  }
+  to {
+    transform: translateY(-3%) scale(1.1);
+  }
+}
+
+@keyframes j-breathe {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.journal-immersive[data-look="unmask"] .journal-scene__intro-art :is(img) {
+  object-position: 50% 25%;
+}
+
+/* Rise issue — a beam of light over the intro */
+.journal-immersive[data-look="ascent"] .journal-scene--intro::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: -10%;
+  left: 50%;
+  width: min(32rem, 60vw);
+  height: 90%;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, rgba(255, 240, 230, 0.22), transparent 80%);
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+/* Statement motions */
+.journal-statement__word {
+  display: inline-block;
+  white-space: pre;
+}
+
+.journal-statement__mask {
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+
+.journal-scene--align-right .journal-statement__mask {
+  margin-left: auto;
+  max-width: 14ch;
+}
+
+.journal-immersive[data-look="ember"] .journal-statement--ride {
+  text-shadow: 0 0 60px color-mix(in srgb, var(--j-tone) 25%, transparent);
+}
+
+/* Artwork scene */
+.journal-scene--artwork {
+  background: var(--j-ground, #030303);
+  overflow: hidden;
+}
+
+.journal-artwork {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding: clamp(4rem, 12vh, 7rem) clamp(1.5rem, 6vw, 2.75rem);
+  display: grid;
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .journal-artwork {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
+}
+
+.journal-artwork__title {
+  margin: 0;
+  font-family: var(--font-journal-serif), Georgia, serif;
+  font-size: clamp(2.75rem, 7vw, 5.5rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #f5f2ed;
+}
+
+.journal-artwork__caption {
+  margin-top: 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 28ch;
+}
+
+.journal-artwork__frame {
+  position: relative;
+  justify-self: center;
+  width: min(100%, calc(70svh * var(--frame-ratio, 1)));
+  max-height: 70svh;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 50px 120px -40px color-mix(in srgb, var(--j-tone, #e0452c) 60%, transparent);
+}
+
+.journal-immersive[data-look="ember"] .journal-artwork__frame {
+  --frame-ratio: 1.518;
+}
+
+.journal-immersive[data-look="ascent"] .journal-artwork__frame {
+  --frame-ratio: 1;
+}
+
+.journal-immersive[data-look="unmask"] .journal-artwork__frame {
+  --frame-ratio: 0.569;
+}
+
+/* Shop scene */
+.journal-scene--shop {
+  background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--j-tone, #e0452c) 14%, transparent), transparent 60%), var(--j-ground, #030303);
+}
+
+.journal-shop {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding: clamp(4rem, 12vh, 7rem) clamp(1.5rem, 6vw, 2.75rem);
+  display: grid;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .journal-shop {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.journal-shop__worn-link {
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 3;
+  max-height: 78svh;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.journal-shop__worn-link img {
+  transition: transform 1.2s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.journal-shop__worn-link:hover img {
+  transform: scale(1.04);
+}
+
+.journal-shop__title {
+  margin: 0;
+  font-family: var(--font-journal-serif), Georgia, serif;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #f5f2ed;
+}
+
+.journal-shop__line {
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.journal-shop__row {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.journal-shop__print {
+  position: relative;
+  height: 4.5rem;
+  flex: none;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.journal-shop__price {
+  font-size: 1.375rem;
+  font-weight: 500;
+  color: #fff;
+}
+
+.journal-shop__meta {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.journal-shop__actions {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+}
+
+.journal-shop__buy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0 1.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  background: #f5f2ed;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.journal-shop__buy:hover {
+  background: var(--j-tone, #e0452c);
+  color: #fff;
+}
+
+.journal-shop__collab {
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.journal-shop__collab:hover {
+  color: #fff;
+}
+
+/* Journal index — issue looks */
+.journal-issue {
+  position: relative;
+}
+
+.journal-issue .ascend-media {
+  filter: none;
+}
+
+.journal-issue .journal-issue-card__shade {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--j-ground) 97%, transparent) 0%,
+    color-mix(in srgb, var(--j-ground) 35%, transparent) 45%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+}
+
+.journal-issue .journal-issue-card__number {
+  color: color-mix(in srgb, var(--j-tone) 75%, white);
+}
+
+.journal-issue .group:hover .journal-issue-card__enter {
+  color: var(--j-tone);
+}
+
+.journal-issue__print {
+  position: absolute;
+  z-index: 5;
+  right: clamp(1.5rem, 6vw, 2.5rem);
+  top: clamp(5.5rem, 14vh, 7rem);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.9rem 0.5rem 0.5rem;
+  background: rgba(8, 8, 8, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color 0.25s ease;
+}
+
+.journal-issue__print:hover {
+  border-color: var(--j-tone);
+}
+
+.journal-issue__print-art {
+  position: relative;
+  height: 3rem;
+  flex: none;
+  background: #000;
+}
+
+.journal-issue__print-copy {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.journal-issue__print-copy b {
+  font-weight: 500;
+  color: var(--j-tone);
+}

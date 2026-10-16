@@ -25,6 +25,7 @@ export type OrderItem = {
   priceDisplay: string;
   quantity: number;
   lineTotal: number;
+  size?: string;
 };
 
 export type Order = {
@@ -46,7 +47,7 @@ export type Order = {
 };
 
 export type CreateOrderInput = {
-  items: { slug: string; quantity: number }[];
+  items: { slug: string; quantity: number; size?: string }[];
   customer: OrderCustomer;
   paymentMethod: PaymentMethod;
   paymentProvider?: PaymentProvider;

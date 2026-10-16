@@ -3,6 +3,8 @@
 import { AscendImage } from "@/components/AscendImage";
 import { JournalReveal } from "@/components/journal/JournalReveal";
 import type { JournalScene as JournalSceneData } from "@/lib/data/journal";
+import type { JournalMotion } from "@/lib/data/journal-themes";
+import { getDropBySlug } from "@/lib/data/drops";
 import { JOURNAL_AUTHOR_SOCIAL } from "@/lib/data/journal-author";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import {
@@ -38,9 +40,98 @@ const SCROLL_HINT_DELAY_S = INTRO_VOID_S + 1.68;
 type JournalSceneProps = {
   scene: JournalSceneData;
   index: number;
+  /** The issue's scroll signature — ride (Discipline), rise (Silence), unmask (Presence). */
+  motionStyle?: JournalMotion;
 };
 
-export function JournalScene({ scene, index }: JournalSceneProps) {
+/** Statement reveal, shaped by the issue's motion. */
+function ThemedStatement({
+  text,
+  motionStyle,
+  peak,
+  className,
+}: {
+  text: string;
+  motionStyle?: JournalMotion;
+  peak?: boolean;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  if (reduce || !motionStyle) {
+    return (
+      <JournalReveal y={peak ? 52 : 40} duration={peak ? 1.35 : JOURNAL_DURATION_SLOW} delay={peak ? 0.22 : 0.08}>
+        <h2 className={className}>{text}</h2>
+      </JournalReveal>
+    );
+  }
+
+  if (motionStyle === "ride") {
+    // Word by word, left to right — a held gait.
+    const words = text.split(" ");
+    return (
+      <motion.h2
+        className={cn(className, "journal-statement--ride")}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.4 }}
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.11, delayChildren: 0.1 } } }}
+        aria-label={text}
+      >
+        {words.map((w, i) => (
+          <motion.span
+            key={`${w}-${i}`}
+            aria-hidden
+            className="journal-statement__word"
+            variants={{
+              hidden: { opacity: 0, x: -36 },
+              visible: { opacity: 1, x: 0, transition: { duration: 0.75, ease: JOURNAL_EASE } },
+            }}
+          >
+            {w}{" "}
+          </motion.span>
+        ))}
+      </motion.h2>
+    );
+  }
+
+  if (motionStyle === "rise") {
+    // Rises out of a mask, like a figure cresting a hill.
+    return (
+      // Observe the mask, not the clipped heading — a fully clipped target never intersects.
+      <motion.div
+        className="journal-statement__mask"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+      >
+        <motion.h2
+          className={cn(className, "journal-statement--rise")}
+          variants={{
+            hidden: { y: "105%" },
+            visible: { y: "0%", transition: { duration: 1.5, ease: JOURNAL_EASE, delay: 0.1 } },
+          }}
+        >
+          {text}
+        </motion.h2>
+      </motion.div>
+    );
+  }
+
+  // unmask — out of blur into focus.
+  return (
+    <motion.h2
+      className={cn(className, "journal-statement--unmask")}
+      initial={{ opacity: 0, filter: "blur(18px)", letterSpacing: "0.04em" }}
+      whileInView={{ opacity: 1, filter: "blur(0px)", letterSpacing: "-0.03em" }}
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 1.6, ease: JOURNAL_EASE, delay: 0.1 }}
+    >
+      {text}
+    </motion.h2>
+  );
+}
+
+export function JournalScene({ scene, index, motionStyle }: JournalSceneProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const fgParallaxRef = useRef<HTMLDivElement>(null);
@@ -61,8 +152,16 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
     if (!inner) return;
 
     const isPeak = Boolean(scene.peak);
-    const bgFrom = isPeak ? { scale: 1.26, y: 80 } : { scale: 1.2, y: 62 };
-    const bgTo = isPeak ? { scale: 1, y: -32 } : { scale: 1, y: -24 };
+    const themed: Record<JournalMotion, { from: gsap.TweenVars; to: gsap.TweenVars }> = {
+      ride: { from: { scale: 1.18, xPercent: -6, y: 0 }, to: { scale: 1.06, xPercent: 6, y: 0 } },
+      rise: { from: { scale: 1.32, y: 100 }, to: { scale: 1.08, y: -20 } },
+      unmask: {
+        from: { scale: 1.12, y: 0, clipPath: "inset(16% 34% 16% 34%)" },
+        to: { scale: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" },
+      },
+    };
+    const bgFrom = motionStyle ? themed[motionStyle].from : isPeak ? { scale: 1.26, y: 80 } : { scale: 1.2, y: 62 };
+    const bgTo = motionStyle ? themed[motionStyle].to : isPeak ? { scale: 1, y: -32 } : { scale: 1, y: -24 };
     const scrubBg = isPeak ? 2.75 : 2.55;
 
     const ctx = gsap.context(() => {
@@ -117,7 +216,7 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
     }, el);
 
     return () => ctx.revert();
-  }, [reduce, scene.peak, scene.type]);
+  }, [reduce, scene.peak, scene.type, motionStyle]);
 
   useEffect(() => {
     if (reduce || scene.type !== "media") return;
@@ -132,13 +231,23 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
 
     const isPeak = Boolean(scene.peak);
     const endScale = isPeak ? 1.24 : 1.14;
+    const mediaThemed: Record<JournalMotion, { from: gsap.TweenVars; to: gsap.TweenVars }> = {
+      ride: { from: { scale: 1.12, xPercent: -4 }, to: { scale: 1.2, xPercent: 4 } },
+      rise: { from: { scale: 1.28, yPercent: 6 }, to: { scale: 1.02, yPercent: -2 } },
+      unmask: {
+        from: { scale: 1.04, filter: "saturate(0) brightness(0.55)" },
+        to: { scale: 1.16, filter: "saturate(1.05) brightness(1)" },
+      },
+    };
+    const mFrom = motionStyle ? mediaThemed[motionStyle].from : { scale: 1.02 };
+    const mTo = motionStyle ? mediaThemed[motionStyle].to : { scale: endScale };
 
     const ctx = gsap.context(() => {
       gsap.fromTo(
         inner,
-        { scale: 1.02 },
+        mFrom,
         {
-          scale: endScale,
+          ...mTo,
           ease: "none",
           scrollTrigger: {
             trigger: section,
@@ -168,7 +277,35 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
     }, section);
 
     return () => ctx.revert();
-  }, [reduce, scene.peak, scene.type]);
+  }, [reduce, scene.peak, scene.type, motionStyle]);
+
+  // Artwork scene — the print enters in the issue's motion.
+  useEffect(() => {
+    if (reduce || scene.type !== "artwork") return;
+    const section = sectionRef.current;
+    const frame = mediaRef.current;
+    if (!section || !frame) return;
+    gsap.registerPlugin(ScrollTrigger);
+    const from: Record<JournalMotion, gsap.TweenVars> = {
+      ride: { xPercent: -14, opacity: 0.2 },
+      rise: { yPercent: 22, opacity: 0.2 },
+      unmask: { clipPath: "inset(0% 50% 0% 50%)", opacity: 1 },
+    };
+    const to: Record<JournalMotion, gsap.TweenVars> = {
+      ride: { xPercent: 0, opacity: 1 },
+      rise: { yPercent: 0, opacity: 1 },
+      unmask: { clipPath: "inset(0% 0% 0% 0%)", opacity: 1 },
+    };
+    const key = motionStyle ?? "rise";
+    const ctx = gsap.context(() => {
+      gsap.fromTo(frame, from[key], {
+        ...to[key],
+        ease: "none",
+        scrollTrigger: { trigger: section, start: "top 85%", end: "center 55%", scrub: 1.2 },
+      });
+    }, section);
+    return () => ctx.revert();
+  }, [reduce, scene.type, motionStyle]);
 
   useEffect(() => {
     if (reduce) return;
@@ -207,6 +344,29 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
             aria-hidden
           >
             <div className="journal-scene__intro-bg journal-scene__intro-bg--drift" />
+            {scene.image ? (
+              <motion.div
+                className={cn("journal-scene__intro-art", motionStyle && `journal-scene__intro-art--${motionStyle}`)}
+                initial={
+                  reduce
+                    ? false
+                    : motionStyle === "unmask"
+                      ? { clipPath: "inset(0% 50% 0% 50%)" }
+                      : { opacity: 0 }
+                }
+                animate={reduce ? undefined : motionStyle === "unmask" ? { clipPath: "inset(0% 0% 0% 0%)" } : { opacity: 1 }}
+                transition={{ duration: 2.2, ease: JOURNAL_EASE, delay: 0.2 }}
+              >
+                <AscendImage
+                  src={scene.image}
+                  alt=""
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </motion.div>
+            ) : null}
           </motion.div>
           <div className="journal-scene__intro-bottom-fade" aria-hidden />
           <div className="journal-scene__grain journal-scene__grain--drift" aria-hidden />
@@ -304,15 +464,102 @@ export function JournalScene({ scene, index }: JournalSceneProps) {
           )}
           data-scene={scene.id}
         >
-          <JournalReveal
-            y={scene.peak ? 52 : 40}
-            duration={scene.peak ? 1.35 : JOURNAL_DURATION_SLOW}
-            delay={scene.peak ? 0.22 : 0.08}
-          >
-            <h2 className="journal-scene__statement">{scene.statement}</h2>
-          </JournalReveal>
+          <ThemedStatement
+            text={scene.statement ?? ""}
+            motionStyle={motionStyle}
+            peak={scene.peak}
+            className="journal-scene__statement"
+          />
         </section>
       );
+
+    case "artwork":
+      return (
+        <section
+          ref={sectionRef}
+          className={cn("journal-scene journal-scene--artwork", motionStyle && `journal-scene--artwork-${motionStyle}`)}
+          data-scene={scene.id}
+        >
+          <div className="journal-artwork">
+            <div className="journal-artwork__copy">
+              {scene.kicker ? <p className="journal-scene__kicker">{scene.kicker}</p> : null}
+              {scene.statement ? <h2 className="journal-artwork__title">{scene.statement}</h2> : null}
+              {scene.caption ? <p className="journal-artwork__caption">{scene.caption}</p> : null}
+            </div>
+            <div
+              ref={mediaRef}
+              className="journal-artwork__frame"
+              style={{ aspectRatio: String(scene.ratio ?? 1) }}
+            >
+              {scene.image ? (
+                <AscendImage
+                  src={scene.image}
+                  alt={scene.imageAlt ?? ""}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  className="object-contain"
+                />
+              ) : null}
+            </div>
+          </div>
+        </section>
+      );
+
+    case "shop": {
+      const product = scene.productSlug ? getDropBySlug(scene.productSlug) : undefined;
+      if (!product) return null;
+      return (
+        <section
+          ref={sectionRef}
+          className="journal-scene journal-scene--shop"
+          data-scene={scene.id}
+        >
+          <div className="journal-shop">
+            <JournalReveal className="journal-shop__worn" y={36} duration={1.1}>
+              <Link href={BRAND_ROUTES.drop(product.slug)} className="journal-shop__worn-link" aria-label={`Shop the ${product.name}`}>
+                {scene.image ? (
+                  <AscendImage
+                    src={scene.image}
+                    alt={scene.imageAlt ?? ""}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 45vw"
+                    className="object-cover"
+                  />
+                ) : null}
+              </Link>
+            </JournalReveal>
+            <div className="journal-shop__copy">
+              <JournalReveal y={20} delay={0.1}>
+                {scene.kicker ? <p className="journal-scene__kicker">{scene.kicker}</p> : null}
+                <h2 className="journal-shop__title">{product.name}</h2>
+                {scene.caption ? <p className="journal-shop__line">{scene.caption}</p> : null}
+              </JournalReveal>
+              <JournalReveal y={16} delay={0.25}>
+                <div className="journal-shop__row">
+                  {scene.printImage ? (
+                    <span className="journal-shop__print" style={{ aspectRatio: String(scene.ratio ?? 1) }}>
+                      <AscendImage src={scene.printImage} alt={scene.printAlt ?? ""} fill sizes="120px" className="object-contain" />
+                    </span>
+                  ) : null}
+                  <div>
+                    <p className="journal-shop__price">{product.price.display}</p>
+                    <p className="journal-shop__meta">Oversized black tee · S–XXL</p>
+                  </div>
+                </div>
+                <div className="journal-shop__actions">
+                  <Link href={BRAND_ROUTES.drop(product.slug)} className="journal-shop__buy">
+                    Shop the tee · {product.price.display}
+                  </Link>
+                  <Link href={BRAND_ROUTES.collab} className="journal-shop__collab">
+                    The full drop <span aria-hidden>→</span>
+                  </Link>
+                </div>
+              </JournalReveal>
+            </div>
+          </div>
+        </section>
+      );
+    }
 
     case "text":
       return (

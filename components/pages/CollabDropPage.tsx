@@ -7,7 +7,7 @@ import { SocialLinks } from "@/components/brand/SocialLinks";
 import { useCinematicScroll } from "@/contexts/cinematic-scroll";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import type { Collab, CollabPrint } from "@/lib/data/collabs";
-import { DROPS } from "@/lib/data/drops";
+import { DROPS, getTeeForPrint } from "@/lib/data/drops";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "next/link";
@@ -104,9 +104,21 @@ function useActiveSection(ids: readonly string[]) {
 /* ─────────────────────────────── Opening ─────────────────────────────── */
 
 function PortalVideo({ collab, reduce }: { collab: Collab; reduce: boolean }) {
-  const [mobileReady, setMobileReady] = useState(false);
-  const [desktopReady, setDesktopReady] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [src, setSrc] = useState<string | null>(null);
   const v = collab.video;
+
+  // Load only the cut that fits this screen.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const choose = () => {
+      setReady(false);
+      setSrc(mq.matches ? v.desktop : v.mobile);
+    };
+    choose();
+    mq.addEventListener("change", choose);
+    return () => mq.removeEventListener("change", choose);
+  }, [v.desktop, v.mobile]);
 
   return (
     <div className="collab-portal__media" aria-hidden>
@@ -114,31 +126,20 @@ function PortalVideo({ collab, reduce }: { collab: Collab; reduce: boolean }) {
         <source media="(min-width: 768px)" srcSet={v.desktopPoster} />
         <img src={v.mobilePoster} alt="" fetchPriority="high" />
       </picture>
-      {!reduce ? (
-        <>
-          <video
-            className={cn("md:hidden", mobileReady && "is-ready")}
-            src={v.mobile}
-            poster={v.mobilePoster}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            onLoadedData={() => setMobileReady(true)}
-          />
-          <video
-            className={cn("hidden md:block", desktopReady && "is-ready")}
-            src={v.desktop}
-            poster={v.desktopPoster}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            onLoadedData={() => setDesktopReady(true)}
-          />
-        </>
+      {!reduce && src ? (
+        <video
+          key={src}
+          className={cn(ready && "is-ready")}
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          onCanPlayThrough={() => setReady(true)}
+          onPlaying={() => setReady(true)}
+        />
       ) : null}
       <div className="portal-editorial-grain" />
     </div>
@@ -266,6 +267,7 @@ function PrintSection({
   const next = collab.prints[index + 1];
   const total = String(collab.prints.length).padStart(2, "0");
   const tall = print.ratio < 0.8;
+  const tee = getTeeForPrint(print.id);
   const motionProps = reduce
     ? {}
     : {
@@ -306,7 +308,11 @@ function PrintSection({
                 transition: { duration: 1.1, ease: EASE },
               })}
         >
-          <div className="collab-print__frame">
+          <Link
+            href={tee ? BRAND_ROUTES.drop(tee.slug) : `#${print.id}`}
+            className="collab-print__frame group"
+            aria-label={tee ? `Shop the ${tee.name}` : print.title}
+          >
             <AscendImage
               src={print.image}
               alt={print.alt}
@@ -315,7 +321,15 @@ function PrintSection({
               className="object-contain"
               priority={index === 0}
             />
-          </div>
+            {tee ? (
+              <span className="collab-print__worn" aria-hidden>
+                <span className="collab-print__worn-img">
+                  <AscendImage src={tee.print!.portraits[0]!.src} alt="" fill sizes="96px" className="object-cover" />
+                </span>
+                See it worn <b>→</b>
+              </span>
+            ) : null}
+          </Link>
           <figcaption className="collab-print__caption">
             Print {print.number} / {total} · {collab.title}
           </figcaption>
@@ -358,6 +372,11 @@ function PrintSection({
           </motion.div>
 
           <motion.div variants={copyItem} className="collab-print__foot">
+            {tee ? (
+              <Link href={BRAND_ROUTES.drop(tee.slug)} className="collab-buy">
+                Buy the tee · {tee.price.display}
+              </Link>
+            ) : null}
             <SocialLinks />
             <button
               type="button"
@@ -454,7 +473,7 @@ export function CollabDropPage({ collab }: { collab: Collab }) {
             </Link>
           </div>
           <ul className="collab-more__grid">
-            {DROPS.map((drop) => (
+            {DROPS.filter((d) => !d.print).map((drop) => (
               <li key={drop.slug}>
                 <Link href={BRAND_ROUTES.drop(drop.slug)} className="collab-more__card group">
                   <span className="collab-more__thumb ascend-media-wrap">

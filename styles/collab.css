@@ -1077,3 +1077,132 @@
     top: 30%;
   }
 }
+
+/* Buy CTA + "see it worn" on each print */
+.collab-buy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0 1.1rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  background: #fafaf9;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.collab-buy:hover {
+  background: var(--print-tone);
+  color: #fff;
+}
+
+.collab-print__frame {
+  display: block;
+  cursor: pointer;
+}
+
+.collab-print__worn {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.85rem 0.3rem 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(8, 8, 8, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: border-color 0.25s ease, transform 0.35s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.collab-print__worn b {
+  font-weight: 400;
+  color: var(--print-tone);
+}
+
+.collab-print__frame:hover .collab-print__worn {
+  border-color: var(--print-tone);
+  transform: translateY(-2px);
+}
+
+.collab-print__worn-img {
+  position: relative;
+  width: 2.1rem;
+  height: 2.6rem;
+  overflow: hidden;
+  flex: none;
+}
+
+@media (max-width: 899px) {
+  .collab-print__foot {
+    justify-content: space-between;
+  }
+}
+
+/* Keep each print + its Buy button inside one screen on short viewports */
+@media (max-height: 800px) {
+  .collab-print__quote {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .collab-print--tall .collab-print__copy {
+    padding-block: 0.5rem;
+  }
+}
+
+@media (min-width: 900px) and (max-height: 960px) {
+  .collab-print--tall .collab-print__body-more,
+  .collab-print--tall .collab-print__quote {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) and (max-height: 800px) {
+  .collab-print,
+  .collab-print--tall {
+    --art-max-h: calc(100svh - 8.5rem);
+    padding-block: calc(4.5rem + 1.25rem) 1.25rem;
+  }
+  .collab-print__reads {
+    margin-top: 0.9rem;
+  }
+  .collab-read {
+    padding: 0.5rem 0;
+  }
+}
+
+@media (max-width: 899px) and (max-height: 700px) {
+  .collab-print,
+  .collab-print--tall {
+    --art-max-h: 28svh;
+  }
+  .collab-print__title {
+    font-size: 1.75rem;
+  }
+  .collab-print__standard {
+    font-size: 0.95rem;
+    margin-top: 0.4rem;
+  }
+  .collab-print__eyebrow {
+    font-size: 0.5625rem;
+  }
+  .collab-read__label {
+    font-size: 0.875rem;
+  }
+}
+
+/* Tall print on desktop: art + caption must fit inside the padded screen */
+@media (min-width: 900px) {
+  .collab-print--tall {
+    --art-max-h: calc(100svh - 12rem);
+  }
+}

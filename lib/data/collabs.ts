@@ -145,7 +145,7 @@ export const NRATLU_COLLAB: Collab = {
       pillar: "Ascent",
       issue: "silence",
       lead: "One blade raised while the army waits below.",
-      quoteIndex: 2,
+      quoteIndex: 4,
       image: `${IMG}/print-02-red-ascension.webp`,
       alt: "A cloaked warrior raising a sword on a hill beneath a vast red cloud sky pierced by a beam of light, armies below",
       ratio: 1,

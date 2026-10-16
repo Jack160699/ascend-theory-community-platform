@@ -1,4 +1,4 @@
-import { ASCEND_PRODUCT_IMAGES } from "@/lib/product-images";
+import { getJournalTheme, type JournalTheme } from "@/lib/data/journal-themes";
 
 export type JournalSceneType =
   | "intro"
@@ -6,6 +6,8 @@ export type JournalSceneType =
   | "typography"
   | "text"
   | "media"
+  | "artwork"
+  | "shop"
   | "byline"
   | "signature"
   | "outro";
@@ -36,6 +38,14 @@ export type JournalScene = {
   ctaLabel?: string;
   /** Byline scene — editorial credit */
   publishedDisplay?: string;
+  /** Artwork scene — intrinsic ratio of the print. */
+  ratio?: number;
+  /** Shop scene — the tee carrying this issue's print. */
+  productSlug?: string;
+  productName?: string;
+  /** Shop scene — the print shown beside the worn shot. */
+  printImage?: string;
+  printAlt?: string;
 };
 
 export type JournalIssue = {
@@ -46,6 +56,8 @@ export type JournalIssue = {
   coverImage: string;
   coverAlt: string;
   articleSlug: string;
+  /** Palette, imagery and scroll motion — matched to the issue's print. */
+  look: JournalTheme;
 };
 
 export type JournalArticle = {
@@ -58,6 +70,7 @@ export type JournalArticle = {
   image: string;
   imageAlt: string;
   content: readonly string[];
+  look: JournalTheme;
   /** Display date under byline (e.g. May 2026) */
   publishedDisplay: string;
   /** ISO-8601 for schema.org */
@@ -65,14 +78,18 @@ export type JournalArticle = {
   scenes: readonly JournalScene[];
 };
 
-export const JOURNAL_ISSUES: readonly JournalIssue[] = [
+function themeFor(slug: string): JournalTheme {
+  const theme = getJournalTheme(slug);
+  if (!theme) throw new Error(`Missing journal theme: ${slug}`);
+  return theme;
+}
+
+const ISSUE_CORE = [
   {
     slug: "discipline",
     number: "01",
     title: "DISCIPLINE",
     theme: "Structure before spectacle.",
-    coverImage: ASCEND_PRODUCT_IMAGES.editorialArchitecture,
-    coverAlt: "Architectural lines — Issue 01",
     articleSlug: "discipline-as-aesthetics",
   },
   {
@@ -80,8 +97,6 @@ export const JOURNAL_ISSUES: readonly JournalIssue[] = [
     number: "02",
     title: "SILENCE",
     theme: "Focus charges interest.",
-    coverImage: ASCEND_PRODUCT_IMAGES.teamStudio,
-    coverAlt: "Studio portrait — Issue 02",
     articleSlug: "quiet-cost-of-focus",
   },
   {
@@ -89,11 +104,20 @@ export const JOURNAL_ISSUES: readonly JournalIssue[] = [
     number: "03",
     title: "PRESENCE",
     theme: "Strength without theatre.",
-    coverImage: ASCEND_PRODUCT_IMAGES.heroStorefront,
-    coverAlt: "City night — Issue 03",
     articleSlug: "modern-masculinity-without-theatre",
   },
 ] as const;
+
+/** Issue `theme` is the tagline; `look` is the visual + motion theme. */
+export const JOURNAL_ISSUES: readonly JournalIssue[] = ISSUE_CORE.map((issue) => {
+  const look = themeFor(issue.slug);
+  return {
+    ...issue,
+    coverImage: look.cover.src,
+    coverAlt: look.cover.alt,
+    look,
+  };
+});
 
 const ARTICLE_CORE = [
   {
@@ -105,11 +129,11 @@ const ARTICLE_CORE = [
     readTime: "4",
     publishedDisplay: "May 2026",
     publishedISO: "2026-05-01",
-    image: ASCEND_PRODUCT_IMAGES.editorialArchitecture,
-    imageAlt: "Architectural lines — discipline as aesthetics",
     content: [
       "Discipline is not punishment. It is composition.",
       "When your days have rhythm, your choices have weight.",
+      "Look at the rider. The fire is not the story. The gait is — four beats, held, while everything around him burns.",
+      "That is what structure buys you: the ability to keep moving when the conditions turn on you.",
       "We do not design for motivation. We design for the person who already decided.",
     ],
   },
@@ -122,11 +146,11 @@ const ARTICLE_CORE = [
     readTime: "6",
     publishedDisplay: "May 2026",
     publishedISO: "2026-05-15",
-    image: ASCEND_PRODUCT_IMAGES.teamStudio,
-    imageAlt: "Studio portrait — the quiet cost of focus",
     content: [
       "Everyone wants the outcome. Few accept the invoice.",
       "You will miss dinners. You will answer late. That is allocation — not failure.",
+      "Look at the hill. One figure, one raised blade, an army that has not moved yet. Ascent is quiet long before it is visible.",
+      "Focus charges interest. The ones who rise pay it early, and alone.",
       "Silence became the new symbol of status.",
     ],
   },
@@ -139,20 +163,20 @@ const ARTICLE_CORE = [
     readTime: "5",
     publishedDisplay: "May 2026",
     publishedISO: "2026-05-18",
-    image: ASCEND_PRODUCT_IMAGES.heroStorefront,
-    imageAlt: "City night — modern masculinity editorial",
     content: [
       "The old script said: perform, dominate, announce.",
       "The new standard says: build, hold, move.",
+      "Look at the bust. The beast is laid over the face like a costume — horned, loud, bleeding for attention.",
+      "Underneath, the stone is calm. That is the man. Presence does not need the mask.",
       "No theatre. No slogans. Only the work.",
     ],
   },
 ] as const;
 
-function buildScenes(
-  issue: JournalIssue,
-  article: (typeof ARTICLE_CORE)[number],
-): JournalScene[] {
+type ArticleCore = (typeof ARTICLE_CORE)[number];
+
+function buildScenes(issue: JournalIssue, article: ArticleCore): JournalScene[] {
+  const look = issue.look;
   /** One peak scene per issue */
   const peakTypography = issue.slug === "discipline" || issue.slug === "presence";
   const peakMedia = issue.slug === "silence";
@@ -161,14 +185,16 @@ function buildScenes(
     {
       id: "intro",
       type: "intro",
-      kicker: `Issue ${issue.number}`,
+      kicker: `Issue ${issue.number} · Print ${look.print.number} · ${look.print.title}`,
       lines: [issue.title, article.title],
+      image: look.intro,
+      imageAlt: look.print.alt,
     },
     {
       id: "visual",
       type: "visual",
-      image: article.image,
-      imageAlt: article.imageAlt,
+      image: look.visual.src,
+      imageAlt: look.visual.alt,
       caption: article.excerpt,
     },
     {
@@ -184,12 +210,36 @@ function buildScenes(
       kicker: article.date,
     },
     {
+      id: "artwork",
+      type: "artwork",
+      image: look.print.image,
+      imageAlt: look.print.alt,
+      ratio: look.print.ratio,
+      kicker: `Print ${look.print.number} · Ascend Theory × NRATLU`,
+      statement: look.print.title,
+      caption: `The image Issue ${issue.number} was written to.`,
+    },
+    {
       id: "media",
       type: "media",
       peak: peakMedia,
-      image: article.image,
-      imageAlt: article.imageAlt,
+      image: look.media.src,
+      imageAlt: look.media.alt,
       statement: article.content[article.content.length - 1],
+    },
+    {
+      id: "shop",
+      type: "shop",
+      kicker: `Wear Issue ${issue.number}`,
+      statement: look.print.title,
+      caption: issue.theme,
+      image: look.worn.src,
+      imageAlt: look.worn.alt,
+      printImage: look.print.image,
+      printAlt: look.print.alt,
+      ratio: look.print.ratio,
+      productSlug: look.productSlug,
+      productName: look.productName,
     },
     {
       id: "byline",
@@ -218,6 +268,9 @@ export const JOURNAL_ARTICLES: readonly JournalArticle[] = ARTICLE_CORE.map(
     const issue = issueMap.get(article.issueSlug)!;
     return {
       ...article,
+      image: issue.look.visual.src,
+      imageAlt: issue.look.visual.alt,
+      look: issue.look,
       scenes: buildScenes(issue, article),
     };
   },

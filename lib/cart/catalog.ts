@@ -14,6 +14,7 @@ const CATALOG: Record<string, CartProduct> = Object.fromEntries(
       currency: drop.price.currency,
       priceDisplay: drop.price.display,
       maxQuantity: drop.scarcity.stockRemaining,
+      sizes: drop.sizes,
     },
   ]),
 );
@@ -22,6 +23,8 @@ export function getCartProduct(slug: string): CartProduct | undefined {
   return CATALOG[slug];
 }
 
+/** First product that can be added without choosing a size. */
 export function getDefaultCartProduct(): CartProduct {
-  return CATALOG[DROPS[0]!.slug]!;
+  const drop = DROPS.find((d) => !d.sizes?.length) ?? DROPS[0]!;
+  return CATALOG[drop.slug]!;
 }

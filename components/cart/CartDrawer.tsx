@@ -1,6 +1,7 @@
 "use client";
 
 import { useCart } from "@/contexts/cart";
+import { cartLineKey } from "@/lib/cart/types";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { formatMoney } from "@/lib/cart/format";
 import { lockModalScroll } from "@/lib/modal-scroll-lock";
@@ -87,10 +88,10 @@ export function CartDrawer() {
             <ul className="cart-drawer__lines">
               {resolvedLines.map(({ line, product }) => (
                 <CartLineItem
-                  key={line.slug}
+                  key={cartLineKey(line)}
                   line={line}
                   product={product}
-                  onQuantityChange={(qty) => setQuantity(line.slug, qty)}
+                  onQuantityChange={(qty) => setQuantity(cartLineKey(line), qty)}
                 />
               ))}
             </ul>

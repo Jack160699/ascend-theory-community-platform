@@ -27,7 +27,7 @@ export async function createStripeCheckoutSession(
         currency: order.currency.toLowerCase(),
         unit_amount: Math.round(item.price * 100),
         product_data: {
-          name: item.name,
+          name: item.size ? `${item.name} — Size ${item.size}` : item.name,
           description: item.dropName,
         },
       },

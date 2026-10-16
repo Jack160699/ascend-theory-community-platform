@@ -26,6 +26,13 @@ export function buildOrderFromInput(input: CreateOrderInput): BuildOrderResult {
     if (!product) {
       return { ok: false, error: `Unknown product: ${line.slug}` };
     }
+    let size: string | undefined;
+    if (product.sizes?.length) {
+      if (!line.size || !product.sizes.includes(line.size)) {
+        return { ok: false, error: `Choose a size for ${product.name}.` };
+      }
+      size = line.size;
+    }
     const quantity = Math.min(
       Math.max(1, Math.floor(line.quantity)),
       product.maxQuantity,
@@ -39,6 +46,7 @@ export function buildOrderFromInput(input: CreateOrderInput): BuildOrderResult {
       priceDisplay: product.priceDisplay,
       quantity,
       lineTotal: lineTotal(product, quantity),
+      ...(size ? { size } : {}),
     });
   }
 

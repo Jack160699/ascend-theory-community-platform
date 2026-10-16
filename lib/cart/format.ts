@@ -24,7 +24,7 @@ export function cartSubtotal(
 }
 
 export function formatOrderWhatsAppBody(input: {
-  lines: { product: CartProduct; quantity: number }[];
+  lines: { product: CartProduct; quantity: number; size?: string }[];
   subtotal: number;
   currency: string;
   customer: {
@@ -41,7 +41,7 @@ export function formatOrderWhatsAppBody(input: {
   const items = input.lines
     .map(
       (l) =>
-        `· ${l.product.name} (${l.product.dropName}) × ${l.quantity} — ${formatMoney(lineTotal(l.product, l.quantity), input.currency)}`,
+        `· ${l.product.name}${l.size ? ` — Size ${l.size}` : ""} (${l.product.dropName}) × ${l.quantity} — ${formatMoney(lineTotal(l.product, l.quantity), input.currency)}`,
     )
     .join("\n");
 
