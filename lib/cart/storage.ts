@@ -15,9 +15,7 @@ export function readCart(): CartLine[] {
         row !== null &&
         typeof (row as CartLine).slug === "string" &&
         typeof (row as CartLine).quantity === "number" &&
-        (row as CartLine).quantity > 0 &&
-        ((row as CartLine).size === undefined ||
-          typeof (row as CartLine).size === "string"),
+        (row as CartLine).quantity > 0,
     );
   } catch {
     return [];

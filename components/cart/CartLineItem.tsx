@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMoney, lineTotal } from "@/lib/cart/format";
+import { formatMoney } from "@/lib/cart/format";
 import type { CartLine, CartProduct } from "@/lib/cart/types";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { AscendImage } from "@/components/AscendImage";
@@ -10,14 +10,20 @@ type CartLineItemProps = {
   line: CartLine;
   product: CartProduct;
   onQuantityChange: (quantity: number) => void;
+  onRemove?: () => void;
 };
 
 export function CartLineItem({
   line,
   product,
   onQuantityChange,
+  onRemove,
 }: CartLineItemProps) {
-  const total = lineTotal(product, line.quantity);
+  // Prefer snapshot price from line; fall back to CartProduct price
+  const unitPrice = line.pricePaise != null ? line.pricePaise / 100 : product.price;
+  const currency = line.currency ?? product.currency;
+  const total = unitPrice * line.quantity;
+  const priceDisplay = line.priceDisplay ?? product.priceDisplay;
 
   return (
     <li className="cart-line">
@@ -36,14 +42,19 @@ export function CartLineItem({
       </Link>
 
       <div className="cart-line__body">
-        <p className="cart-line__drop">{product.dropName}</p>
+        <p className="cart-line__drop">{product.dropName || product.name}</p>
         <Link href={BRAND_ROUTES.drop(line.slug)} className="cart-line__name">
           {product.name}
         </Link>
-        <p className="cart-line__unit">
-          {line.size ? <span className="cart-line__size">Size {line.size} · </span> : null}
-          {product.priceDisplay}
-        </p>
+
+        {/* Variant badge: size / color */}
+        {(line.size || line.color) && (
+          <p className="cart-line__variant text-xs text-white/40 font-mono mt-0.5">
+            {[line.size, line.color].filter(Boolean).join(" · ")}
+          </p>
+        )}
+
+        <p className="cart-line__unit">{priceDisplay}</p>
 
         <div className="cart-line__qty">
           <button
@@ -66,11 +77,21 @@ export function CartLineItem({
           >
             +
           </button>
+          {onRemove && (
+            <button
+              type="button"
+              className="cart-qty-btn cart-qty-btn--remove"
+              aria-label="Remove item"
+              onClick={onRemove}
+            >
+              ×
+            </button>
+          )}
         </div>
       </div>
 
       <p className="cart-line__total">
-        {formatMoney(total, product.currency)}
+        {formatMoney(total, currency)}
       </p>
     </li>
   );

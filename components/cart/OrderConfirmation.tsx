@@ -5,20 +5,32 @@ import {
   clearOrderSnapshot,
   fetchOrder,
   readOrderSnapshot,
+  readCodConfirmationToken,
 } from "@/lib/checkout/client";
 import { formatMoney } from "@/lib/cart/format";
 import type { Order } from "@/lib/orders/types";
+import { CodConfirmationState } from "@/components/orders/CodConfirmationState";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export function OrderConfirmation() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId") ?? "";
-  const paidFlag = searchParams.get("paid") === "1";
+  const razorpayOrderId = searchParams.get("razorpay_order_id") ?? "";
+  const razorpayPaymentId = searchParams.get("razorpay_payment_id") ?? "";
+  const razorpaySignature = searchParams.get("razorpay_signature") ?? "";
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refetchOrder = useCallback(async () => {
+    if (!orderId) return;
+    const fetched = await fetchOrder(orderId);
+    if (fetched) {
+      setOrder(fetched);
+    }
+  }, [orderId]);
 
   useEffect(() => {
     if (!orderId) {
@@ -29,15 +41,21 @@ export function OrderConfirmation() {
     let cancelled = false;
 
     async function load() {
-      if (paidFlag) {
+      // Cryptographically verify Razorpay payment if callback params are present
+      if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
         try {
-          await fetch("/api/orders/confirm", {
+          await fetch("/api/payments/razorpay/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId }),
+            body: JSON.stringify({
+              ascendOrderId: orderId,
+              razorpayOrderId,
+              razorpayPaymentId,
+              razorpaySignature,
+            }),
           });
         } catch {
-          /* continue with snapshot */
+          /* continue to fetch server order state */
         }
       }
 
@@ -54,7 +72,7 @@ export function OrderConfirmation() {
     return () => {
       cancelled = true;
     };
-  }, [orderId, paidFlag]);
+  }, [orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature]);
 
   if (loading) {
     return (
@@ -77,7 +95,8 @@ export function OrderConfirmation() {
   }
 
   const isPaid = order.status === "paid";
-  const isCod = order.paymentMethod === "cod";
+  const isCod = order.paymentMethod === "cod" || Boolean(order.isCod);
+  const confirmationToken = isCod ? (readCodConfirmationToken(order.id) ?? undefined) : undefined;
 
   return (
     <div className="drop-shell order-confirmation py-28 sm:py-32 max-w-xl">
@@ -94,6 +113,17 @@ export function OrderConfirmation() {
       </p>
 
       <p className="order-confirmation__id mt-8">Order {order.id}</p>
+
+      {/* Render COD confirmation state workflow for Cash on Delivery orders */}
+      {isCod && (
+        <div className="mt-8">
+          <CodConfirmationState
+            order={order}
+            confirmationToken={confirmationToken}
+            onStatusUpdated={refetchOrder}
+          />
+        </div>
+      )}
 
       <ul className="order-confirmation__items mt-8">
         {order.items.map((item) => (
