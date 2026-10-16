@@ -22,6 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.ascendtheory.in"),
   title: "Ascend Theory — Luxury In Motion",
   description:
     "A futuristic luxury lifestyle and philosophy brand — discipline, ambition, modern performance, and cinematic identity.",

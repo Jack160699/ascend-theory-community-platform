@@ -1,0 +1,823 @@
+/* ─────────────────────────────────────────────────────────────
+   Collaboration drop — Ascend Theory × NRATLU
+   Ember-red accent pulled from the prints, on the house black.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --collab-ember: #e0452c;
+  --collab-ember-soft: rgba(224, 69, 44, 0.16);
+  --collab-hairline: rgba(255, 255, 255, 0.08);
+}
+
+/* Prints are artwork — show them in true colour, not the house photo grade. */
+.collab-art .ascend-media,
+.next-drop .ascend-media {
+  filter: none;
+}
+
+.collab-canvas {
+  background: #070606;
+}
+
+/* ── Hero ── */
+.collab-hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  isolation: isolate;
+  padding-block: clamp(7rem, 16vh, 10rem) clamp(3.5rem, 9vh, 6rem);
+  scroll-margin-top: 0;
+}
+
+.collab-hero__triptych {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 0.85fr;
+  gap: 2px;
+  background: #000;
+}
+
+.collab-hero__panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.collab-hero__panel--1 :is(img) {
+  object-position: 58% 50%;
+}
+
+.collab-hero__panel--3 :is(img) {
+  object-position: 50% 30%;
+}
+
+@media (max-width: 767px) {
+  .collab-hero__triptych {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .collab-hero__panel--1 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .collab-hero__panel {
+    animation: collab-panel-in 1.4s cubic-bezier(0.33, 1, 0.68, 1) both;
+  }
+  .collab-hero__panel--2 {
+    animation-delay: 0.15s;
+  }
+  .collab-hero__panel--3 {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes collab-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.collab-hero__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, #070606 0%, rgba(7, 6, 6, 0.88) 32%, rgba(7, 6, 6, 0.35) 68%, rgba(7, 6, 6, 0.6) 100%),
+    radial-gradient(ellipse at 20% 100%, rgba(224, 69, 44, 0.22), transparent 60%);
+}
+
+.collab-hero__copy {
+  max-width: 76rem;
+}
+
+.collab-hero__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.collab-hero__pulse {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--collab-ember);
+  box-shadow: 0 0 0 0 rgba(224, 69, 44, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .collab-hero__pulse {
+    animation: collab-pulse 2.2s ease-out infinite;
+  }
+}
+
+@keyframes collab-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(224, 69, 44, 0.55);
+  }
+  80%,
+  100% {
+    box-shadow: 0 0 0 0.6rem rgba(224, 69, 44, 0);
+  }
+}
+
+.collab-hero__title {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: clamp(0.75rem, 2vw, 1.5rem);
+  font-size: clamp(2.6rem, 8vw, 6.5rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  color: #fafaf9;
+}
+
+.collab-hero__x {
+  color: var(--collab-ember);
+  font-weight: 300;
+}
+
+.collab-hero__headline {
+  margin-top: clamp(1.5rem, 3vh, 2rem);
+  font-size: clamp(1.125rem, 1.6vw, 1.375rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.collab-hero__statement {
+  margin-top: 0.5rem;
+  max-width: 44ch;
+  line-height: 1.7;
+}
+
+.collab-hero__actions {
+  margin-top: clamp(2rem, 5vh, 2.75rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.collab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.9rem;
+  padding: 0 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 10, 10, 0.45);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.3s ease, color 0.3s ease, background-color 0.3s ease;
+}
+
+.collab-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.collab-btn--primary {
+  color: #0a0a0a;
+  background: #fafaf9;
+  border-color: #fafaf9;
+}
+
+.collab-btn--primary:hover {
+  color: #fff;
+  background: var(--collab-ember);
+  border-color: var(--collab-ember);
+}
+
+/* ── Sticky print index ── */
+.collab-index {
+  position: sticky;
+  top: 4.25rem;
+  z-index: 60;
+  border-block: 1px solid var(--collab-hairline);
+  background: rgba(7, 6, 6, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+@media (min-width: 640px) {
+  .collab-index {
+    top: 4.5rem;
+  }
+}
+
+.collab-index__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 3.25rem;
+}
+
+.collab-index__label {
+  display: none;
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .collab-index__label {
+    display: block;
+  }
+}
+
+.collab-index__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+
+.collab-index__list::-webkit-scrollbar {
+  display: none;
+}
+
+.collab-index__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.95rem 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.25s ease;
+}
+
+.collab-index__link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: -1px;
+  height: 1px;
+  background: var(--collab-ember);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.collab-index__link:hover,
+.collab-index__link.is-active {
+  color: #fff;
+}
+
+.collab-index__link.is-active::after {
+  transform: scaleX(1);
+}
+
+.collab-index__no {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  color: var(--collab-ember);
+}
+
+/* ── Print sections ── */
+.collab-print {
+  --print-tone: var(--collab-ember);
+  position: relative;
+  padding-block: clamp(4.5rem, 12vh, 8rem);
+  border-bottom: 1px solid var(--collab-hairline);
+  scroll-margin-top: 8.5rem;
+}
+
+.collab-print::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--print-tone) 10%, transparent), transparent 60%);
+}
+
+.collab-print--reverse::before {
+  background: radial-gradient(ellipse at 70% 50%, color-mix(in srgb, var(--print-tone) 10%, transparent), transparent 60%);
+}
+
+.collab-print__grid {
+  display: grid;
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .collab-print__grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+  .collab-print--reverse .collab-print__art {
+    order: 2;
+  }
+}
+
+.collab-print__art {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.collab-print__frame {
+  position: relative;
+  width: 100%;
+  max-height: 82svh;
+  overflow: hidden;
+  background: #000;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 40px 80px -30px color-mix(in srgb, var(--print-tone) 45%, transparent);
+}
+
+.collab-print__art--tall .collab-print__frame {
+  width: min(100%, 26rem);
+  max-height: none;
+}
+
+@media (min-width: 900px) {
+  .collab-print__art--tall .collab-print__frame {
+    width: auto;
+    height: min(82svh, 52rem);
+    max-width: 100%;
+  }
+}
+
+.collab-print__caption {
+  align-self: flex-start;
+  margin-top: 1rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.collab-print__art--tall .collab-print__caption {
+  align-self: center;
+}
+
+.collab-print__copy {
+  position: relative;
+}
+
+.collab-print__number {
+  position: absolute;
+  top: -0.35em;
+  right: 0;
+  font-size: clamp(5rem, 12vw, 9rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--print-tone) 55%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+.collab-print__title {
+  margin-top: 1rem;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: #fafaf9;
+}
+
+.collab-print__line {
+  margin-top: 1.25rem;
+  font-size: clamp(1.0625rem, 1.4vw, 1.25rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--print-tone) 55%, white);
+  max-width: 30ch;
+}
+
+.collab-print__body {
+  margin-top: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 40ch;
+}
+
+.collab-print__social {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--collab-hairline);
+}
+
+.collab-print__label {
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 0.85rem;
+}
+
+.collab-print__pager {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.collab-print__pager-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.25s ease;
+}
+
+.collab-print__pager-link:hover {
+  color: #fff;
+}
+
+.collab-print__pager-link--next {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* ── Instagram section ── */
+.collab-social {
+  padding-block: clamp(5rem, 14vh, 9rem);
+  scroll-margin-top: 8.5rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--collab-ember-soft), transparent 60%),
+    #070606;
+  border-bottom: 1px solid var(--collab-hairline);
+}
+
+/* ── Earlier drops + explore ── */
+.collab-more {
+  padding-block: clamp(4rem, 10vh, 7rem);
+}
+
+.collab-more__head {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .collab-more__head {
+    grid-template-columns: 1fr auto;
+    align-items: end;
+  }
+  .collab-more__head .brand-eyebrow {
+    grid-column: 1 / -1;
+  }
+}
+
+.collab-more__title {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.collab-more__all {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.collab-more__all:hover {
+  color: #fff;
+}
+
+.collab-more__grid {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem 1rem;
+}
+
+@media (min-width: 900px) {
+  .collab-more__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.collab-more__card {
+  display: block;
+}
+
+.collab-more__thumb {
+  display: block;
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 1px solid var(--collab-hairline);
+}
+
+.collab-more__name {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shared: Instagram links
+   ───────────────────────────────────────────────────────────── */
+.social-inline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.social-inline__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.25s ease;
+}
+
+.social-inline__link:hover {
+  color: #fff;
+}
+
+.social-inline__link svg {
+  font-size: 1rem;
+}
+
+.social-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .social-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.social-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.015);
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.social-card:hover {
+  border-color: color-mix(in srgb, var(--collab-ember) 60%, transparent);
+  background: rgba(224, 69, 44, 0.05);
+}
+
+.social-card__role {
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.social-card__handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: clamp(1.375rem, 2.6vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #fafaf9;
+  overflow-wrap: anywhere;
+}
+
+.social-card__cta {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.25s ease;
+}
+
+.social-card:hover .social-card__cta {
+  color: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shared: next-drop banner (drops, wearables, philosophy,
+   journal, product pages)
+   ───────────────────────────────────────────────────────────── */
+.next-drop {
+  position: relative;
+  display: grid;
+  gap: clamp(1.75rem, 4vw, 3rem);
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    radial-gradient(ellipse at 0% 100%, rgba(224, 69, 44, 0.14), transparent 55%),
+    #0b0a0a;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .next-drop {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    align-items: center;
+  }
+}
+
+.next-drop__title {
+  display: block;
+  margin-top: 0.85rem;
+  font-size: clamp(1.625rem, 3.2vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+  color: #fafaf9;
+}
+
+.next-drop__title:hover {
+  color: #fff;
+}
+
+.next-drop__line {
+  margin-top: 0.85rem;
+  font-size: 0.9375rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.next-drop__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.15rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  background: #fafaf9;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.next-drop__cta:hover {
+  background: var(--collab-ember);
+  color: #fff;
+}
+
+.next-drop__prints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.next-drop__print {
+  display: block;
+}
+
+.next-drop__thumb {
+  display: block;
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.next-drop__print-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-top: 0.65rem;
+  min-width: 0;
+}
+
+.next-drop__print-no {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  color: var(--collab-ember);
+}
+
+.next-drop__print-title {
+  font-size: clamp(0.6875rem, 1.1vw, 0.8125rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.25s ease;
+}
+
+.next-drop__print:hover .next-drop__print-title {
+  color: #fff;
+}
+
+/* Page placements */
+.next-drop-slot {
+  padding-block: clamp(3rem, 8vh, 5rem);
+}
+
+.drops-page .next-drop {
+  margin-top: clamp(2.5rem, 6vh, 3.5rem);
+}
+
+/* Explore block — fit every section on one row where space allows */
+@media (min-width: 640px) {
+  .page-explore .page-explore__list {
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  }
+}
+
+/* Explore block — Instagram row */
+.page-explore__social {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+
+/* Footer — Instagram row */
+.site-footer__social {
+  margin-top: 1.5rem;
+}
+
+.site-footer__social .social-inline__link {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Homepage portal — Instagram handles bottom-left */
+.portal-social {
+  position: absolute;
+  z-index: 12;
+  bottom: 6%;
+  left: 6%;
+}
+
+@media (min-width: 768px) {
+  .portal-social {
+    left: 8%;
+  }
+}
+
+.portal-social .social-inline__link {
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Journal article — closing cross-links */
+.journal-article-explore {
+  padding: clamp(3rem, 8vh, 5rem) clamp(1.25rem, 4vw, 2.75rem) clamp(4rem, 10vh, 6rem);
+  max-width: 76rem;
+  margin-inline: auto;
+  background: transparent;
+}
+
+/* Journal overlay menu — keep handles at link scale, not menu scale */
+.journal-nav__overlay-inner .social-inline__link {
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+}

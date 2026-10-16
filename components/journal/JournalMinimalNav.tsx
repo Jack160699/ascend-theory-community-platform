@@ -1,6 +1,7 @@
 "use client";
 
-import { BRAND_ROUTES } from "@/lib/brand/routes";
+import { SocialLinks } from "@/components/brand/SocialLinks";
+import { BRAND_NAV, BRAND_ROUTES } from "@/lib/brand/routes";
 import Link from "next/link";
 import { useState } from "react";
 type JournalMinimalNavProps = {
@@ -36,18 +37,12 @@ export function JournalMinimalNav({
             <Link href={BRAND_ROUTES.home} onClick={() => setOpen(false)}>
               Home
             </Link>
-            <Link href={BRAND_ROUTES.drops} onClick={() => setOpen(false)}>
-              Drops
-            </Link>
-            <Link href={BRAND_ROUTES.journal} onClick={() => setOpen(false)}>
-              Journal
-            </Link>
-            <Link href={BRAND_ROUTES.wearables} onClick={() => setOpen(false)}>
-              Wearables
-            </Link>
-            <Link href={BRAND_ROUTES.philosophy} onClick={() => setOpen(false)}>
-              Philosophy
-            </Link>
+            {BRAND_NAV.map((item) => (
+              <Link key={item.href} href={item.href} onClick={() => setOpen(false)}>
+                {item.label}
+              </Link>
+            ))}
+            <SocialLinks className="mt-6" />
           </nav>
         </div>
       ) : null}

@@ -1,5 +1,6 @@
-﻿"use client";
+"use client";
 
+import { SocialLinks } from "@/components/brand/SocialLinks";
 import { CartNavButton } from "@/components/cart/CartNavButton";
 import { useAssessmentModal } from "@/contexts/assessment-modal";
 import {
@@ -129,6 +130,7 @@ export function BrandNav() {
             >
               APPLY
             </button>
+            <SocialLinks className="mt-4" />
           </div>
         </div>
       ) : null}

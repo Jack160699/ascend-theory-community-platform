@@ -2,6 +2,8 @@
 
 import { BrandSiteLayout } from "@/components/brand/layout/BrandSiteLayout";
 import { BrandWearables } from "@/components/brand/sections/BrandWearables";
+import { NextDropBanner } from "@/components/brand/NextDropBanner";
+import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
 import { AscendImage } from "@/components/AscendImage";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { WEARABLES_INDEX } from "@/lib/data/wearables";
@@ -29,12 +31,21 @@ export function WearablesPage() {
             {WEARABLES_INDEX.headline}
           </h1>
           <p className="brand-voice mt-8">{WEARABLES_INDEX.description}</p>
-          <Link href={BRAND_ROUTES.drops} className="brand-wearables-cta mt-10 inline-flex">
-            All drops →
-          </Link>
+          <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3">
+            <Link href={BRAND_ROUTES.drops} className="brand-wearables-cta inline-flex">
+              All drops →
+            </Link>
+            <Link href={BRAND_ROUTES.collab} className="brand-wearables-cta inline-flex">
+              Next drop: × NRATLU →
+            </Link>
+          </div>
         </div>
       </header>
       <BrandWearables />
+      <div className="brand-shell next-drop-slot">
+        <NextDropBanner />
+        <PageExploreLinks excludeHref={BRAND_ROUTES.wearables} />
+      </div>
     </BrandSiteLayout>
   );
 }

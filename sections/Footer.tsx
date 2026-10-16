@@ -1,5 +1,6 @@
 "use client";
 
+import { SocialLinks } from "@/components/brand/SocialLinks";
 import { FOOTER } from "@/lib/brand/content";
 import { BRAND_NAV, BRAND_ROUTES } from "@/lib/brand/routes";
 import Link from "next/link";
@@ -28,6 +29,7 @@ export function Footer() {
               ASCEND THEORY
             </Link>
             <p className="site-footer__tagline">{FOOTER.tagline}</p>
+            <SocialLinks className="site-footer__social" />
           </div>
 
           <nav aria-label="Site" className="site-footer__nav">

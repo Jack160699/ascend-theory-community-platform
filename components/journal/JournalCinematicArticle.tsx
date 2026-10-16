@@ -3,6 +3,8 @@
 import { JournalMinimalNav } from "@/components/journal/JournalMinimalNav";
 import { JournalScene } from "@/components/journal/JournalScene";
 import type { JournalArticle } from "@/lib/data/journal";
+import { NextDropBanner } from "@/components/brand/NextDropBanner";
+import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { useReducedMotion } from "framer-motion";
 import gsap from "gsap";
@@ -50,6 +52,10 @@ export function JournalCinematicArticle({ article }: JournalCinematicArticleProp
           <JournalScene key={scene.id} scene={scene} index={index} />
         ))}
       </article>
+      <div className="journal-article-explore">
+        <NextDropBanner />
+        <PageExploreLinks />
+      </div>
     </div>
   );
 }

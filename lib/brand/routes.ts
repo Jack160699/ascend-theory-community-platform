@@ -9,6 +9,8 @@ export const BRAND_ROUTES = {
   wearables: "/wearables",
   drops: "/drops",
   journal: "/journal",
+  collab: "/collab/nratlu",
+  collabPrint: (id: string) => `/collab/nratlu#${id}` as const,
   drop: (slug: string) => `/drop/${slug}` as const,
   journalArticle: (slug: string) => `/journal/${slug}` as const,
   dropFeatured: `/drop/${featuredSlug}` as const,
@@ -22,6 +24,7 @@ export type BrandNavItem = {
 
 /** Global nav order — header, footer, and in-page explore links. */
 export const BRAND_NAV: readonly BrandNavItem[] = [
+  { href: BRAND_ROUTES.collab, label: "× NRATLU" },
   { href: BRAND_ROUTES.drops, label: "DROPS" },
   { href: BRAND_ROUTES.journal, label: "JOURNAL" },
   { href: BRAND_ROUTES.wearables, label: "WEARABLES" },
@@ -30,14 +33,12 @@ export const BRAND_NAV: readonly BrandNavItem[] = [
 
 /**
  * Homepage portal — bottom-right stack (top → bottom visually).
- * Same sequence as BRAND_NAV; stagger runs Philosophy → Drops (bottom-up reveal).
+ * Same sequence as BRAND_NAV; stagger runs bottom-up so the collab lands last.
  */
-export const PORTAL_DIRECTIONS = [
-  { ...BRAND_NAV[0], stagger: "0.8s" },
-  { ...BRAND_NAV[1], stagger: "0.6s" },
-  { ...BRAND_NAV[2], stagger: "0.4s" },
-  { ...BRAND_NAV[3], stagger: "0.2s" },
-] as const;
+export const PORTAL_DIRECTIONS = BRAND_NAV.map((item, index) => ({
+  ...item,
+  stagger: `${((BRAND_NAV.length - index) * 0.2).toFixed(1)}s`,
+}));
 
 /** @deprecated Use BRAND_NAV or PORTAL_DIRECTIONS */
 export const PORTAL_LINKS = BRAND_NAV;

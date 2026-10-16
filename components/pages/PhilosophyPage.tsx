@@ -2,6 +2,9 @@
 
 import { BrandSiteLayout } from "@/components/brand/layout/BrandSiteLayout";
 import { PhilosophyReveal } from "@/components/philosophy/PhilosophyReveal";
+import { NextDropBanner } from "@/components/brand/NextDropBanner";
+import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
+import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { useAssessmentModal } from "@/contexts/assessment-modal";
 import { PHILOSOPHY_PAGE } from "@/lib/brand/content";
 import {
@@ -283,6 +286,11 @@ export function PhilosophyPage() {
           <p className="philosophy-page__cta-sub">{copy.cta.subtext}</p>
           <p className="philosophy-page__support">{copy.support}</p>
         </motion.section>
+
+        <div className="brand-shell next-drop-slot">
+          <NextDropBanner />
+          <PageExploreLinks excludeHref={BRAND_ROUTES.philosophy} />
+        </div>
       </article>
     </BrandSiteLayout>
   );

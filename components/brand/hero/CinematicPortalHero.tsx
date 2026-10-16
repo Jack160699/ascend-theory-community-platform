@@ -1,6 +1,7 @@
 "use client";
 
 import { HeroCinematicBackground } from "@/components/brand/hero/HeroCinematicBackground";
+import { SocialLinks } from "@/components/brand/SocialLinks";
 import { BRAND, HERO_PORTAL_SUBLINE } from "@/lib/brand/content";
 import { PORTAL_DIRECTIONS } from "@/lib/brand/routes";
 import { cn } from "@/lib/utils";
@@ -16,13 +17,13 @@ const NAVIGATE_DELAY_MS = 800;
 const GRID_LEFT = "left-[6%] md:left-[8%]";
 const GRID_RIGHT = "right-[6%] md:right-[8%]";
 const LOGO_TOP = "top-[5%] md:top-[6%]";
-const MENU_TOP = "top-[42%] md:top-[38%]";
+const MENU_TOP = "top-[34%] md:top-[30%]";
 const ANCHOR_TOP = "top-[45%]";
 const TRACKING = "tracking-[0.25em]";
 
 const MENU_ITEM_CLASS = cn(
   "m-0 cursor-pointer border-0 bg-transparent p-0 text-right font-light uppercase whitespace-nowrap",
-  "text-[clamp(28px,5vw,64px)] leading-[1.4] text-white/70 opacity-0",
+  "text-[clamp(24px,4.4vw,56px)] leading-[1.35] text-white/70 opacity-0",
   TRACKING,
   "transition-[color,transform,opacity] duration-300 hover:scale-105 hover:text-white",
 );
@@ -147,7 +148,7 @@ export function CinematicPortalHero() {
 
         <nav
           className={cn(
-            "absolute z-[12] flex max-h-[70vh] flex-col items-end space-y-7 text-right leading-[1.6] md:space-y-8",
+            "absolute z-[12] flex max-h-[62vh] flex-col items-end space-y-5 text-right leading-[1.6] md:space-y-6",
             GRID_RIGHT,
             MENU_TOP,
             showDirections ? "pointer-events-auto" : "pointer-events-none",
@@ -172,6 +173,16 @@ export function CinematicPortalHero() {
             </button>
           ))}
         </nav>
+
+        <div
+          className={cn(
+            "portal-social transition-opacity duration-700",
+            showDirections ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          aria-hidden={!showDirections}
+        >
+          <SocialLinks />
+        </div>
       </div>
 
       <div

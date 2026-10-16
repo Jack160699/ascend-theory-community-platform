@@ -1,7 +1,9 @@
-﻿"use client";
+"use client";
 
 import { BrandSiteLayout } from "@/components/brand/layout/BrandSiteLayout";
 import { AscendImage } from "@/components/AscendImage";
+import { NextDropBanner } from "@/components/brand/NextDropBanner";
+import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
 import { DROPS } from "@/lib/data/drops";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import Link from "next/link";
@@ -15,6 +17,8 @@ export function DropsPage() {
           <h1 className="brand-display mt-6 max-w-[12ch]">No restock.</h1>
           <p className="brand-voice mt-8">One run per release. Then closed.</p>
         </header>
+
+        <NextDropBanner />
 
         <ul className="drops-grid">
           {DROPS.map((drop) => (
@@ -41,6 +45,8 @@ export function DropsPage() {
             </li>
           ))}
         </ul>
+
+        <PageExploreLinks excludeHref={BRAND_ROUTES.drops} />
       </div>
     </BrandSiteLayout>
   );

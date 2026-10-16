@@ -5,6 +5,8 @@ import { DropClosingCta } from "./DropClosingCta";
 import { DropDetails } from "./DropDetails";
 import { DropHero } from "./DropHero";
 import { BrandNav } from "@/components/brand/BrandNav";
+import { NextDropBanner } from "@/components/brand/NextDropBanner";
+import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
 import { DropProductProvider } from "./DropProductContext";
 import { DropScarcity } from "./DropScarcity";
 import { DropStickyBar } from "./DropStickyBar";
@@ -22,6 +24,10 @@ export function DropExperience({ product }: { product: Drop }) {
         <DropDetails />
         <DropScarcity />
         <DropClosingCta />
+        <section className="drop-shell next-drop-slot" aria-label="More from Ascend Theory">
+          <NextDropBanner />
+          <PageExploreLinks />
+        </section>
         <DropStickyBar />
       </div>
     </DropProductProvider>
