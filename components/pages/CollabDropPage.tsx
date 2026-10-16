@@ -3,36 +3,57 @@
 import { AscendImage } from "@/components/AscendImage";
 import { BrandSiteLayout } from "@/components/brand/layout/BrandSiteLayout";
 import { PageExploreLinks } from "@/components/brand/PageExploreLinks";
-import { InstagramGlyph, SocialLinks } from "@/components/brand/SocialLinks";
+import { SocialLinks } from "@/components/brand/SocialLinks";
 import { useCinematicScroll } from "@/contexts/cinematic-scroll";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import type { Collab, CollabPrint } from "@/lib/data/collabs";
 import { DROPS } from "@/lib/data/drops";
 import { cn } from "@/lib/utils";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "next/link";
 import {
   useCallback,
   useEffect,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
-  type MouseEvent,
-  type ReactNode,
 } from "react";
 
-/** Clearance for the fixed brand header + sticky print index. */
-const ANCHOR_OFFSET = 132;
+/* Same timing as the homepage portal. */
+const SUBTEXT_DELAY_MS = 800;
+const HIDE_TEXT_DELAY_MS = 2500;
+const DIRECTIONS_DELAY_MS = 3000;
+const ENTRY_STAGGER_S = 0.2;
+const EASE = [0.33, 1, 0.68, 1] as const;
 
-function useAnchorScroll() {
+function subscribeReduce(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function useReduceMotion() {
+  return useSyncExternalStore(
+    subscribeReduce,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
+}
+
+/** Smooth scroll to a section (Lenis when running), keeping the URL hash in sync. */
+function useSectionScroll() {
   const { lenis } = useCinematicScroll();
 
   const scrollToId = useCallback(
     (id: string, smooth = true) => {
       const el = document.getElementById(id);
       if (!el) return;
+      if (smooth) window.history.replaceState(null, "", `#${id}`);
       if (lenis) {
-        lenis.scrollTo(el, { offset: -ANCHOR_OFFSET, immediate: !smooth });
+        lenis.scrollTo(el, { offset: 0, duration: 1.6, immediate: !smooth });
       } else {
-        const top = el.getBoundingClientRect().top + window.scrollY - ANCHOR_OFFSET;
+        const top = el.getBoundingClientRect().top + window.scrollY;
         window.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
       }
     },
@@ -50,47 +71,25 @@ function useAnchorScroll() {
   return scrollToId;
 }
 
-function AnchorLink({
-  id,
-  className,
-  children,
-  onNavigate,
-  ariaLabel,
-}: {
-  id: string;
-  className?: string;
-  children: ReactNode;
-  onNavigate: (id: string) => void;
-  ariaLabel?: string;
-}) {
-  return (
-    <a
-      href={`#${id}`}
-      aria-label={ariaLabel}
-      className={className}
-      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-        event.preventDefault();
-        window.history.replaceState(null, "", `#${id}`);
-        onNavigate(id);
-      }}
-    >
-      {children}
-    </a>
-  );
-}
-
-function useActivePrint(ids: readonly string[]) {
+function useActiveSection(ids: readonly string[]) {
   const [active, setActive] = useState<string | null>(null);
 
   useEffect(() => {
+    const visible = new Map<string, number>();
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible) setActive(visible.target.id);
+        entries.forEach((e) => visible.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
+        let best: string | null = null;
+        let bestRatio = 0;
+        visible.forEach((ratio, id) => {
+          if (ratio > bestRatio) {
+            best = id;
+            bestRatio = ratio;
+          }
+        });
+        setActive(bestRatio > 0 ? best : null);
       },
-      { rootMargin: "-35% 0px -45% 0px", threshold: [0, 0.25, 0.5] },
+      { threshold: [0, 0.2, 0.4, 0.6, 0.8, 1] },
     );
     ids.forEach((id) => {
       const el = document.getElementById(id);
@@ -101,6 +100,156 @@ function useActivePrint(ids: readonly string[]) {
 
   return active;
 }
+
+/* ─────────────────────────────── Opening ─────────────────────────────── */
+
+function PortalVideo({ collab, reduce }: { collab: Collab; reduce: boolean }) {
+  const [mobileReady, setMobileReady] = useState(false);
+  const [desktopReady, setDesktopReady] = useState(false);
+  const v = collab.video;
+
+  return (
+    <div className="collab-portal__media" aria-hidden>
+      <picture>
+        <source media="(min-width: 768px)" srcSet={v.desktopPoster} />
+        <img src={v.mobilePoster} alt="" fetchPriority="high" />
+      </picture>
+      {!reduce ? (
+        <>
+          <video
+            className={cn("md:hidden", mobileReady && "is-ready")}
+            src={v.mobile}
+            poster={v.mobilePoster}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            onLoadedData={() => setMobileReady(true)}
+          />
+          <video
+            className={cn("hidden md:block", desktopReady && "is-ready")}
+            src={v.desktop}
+            poster={v.desktopPoster}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            onLoadedData={() => setDesktopReady(true)}
+          />
+        </>
+      ) : null}
+      <div className="portal-editorial-grain" />
+    </div>
+  );
+}
+
+function CollabPortal({
+  collab,
+  onEnter,
+}: {
+  collab: Collab;
+  onEnter: (id: string) => void;
+}) {
+  const reduce = useReduceMotion();
+  const [showSub, setShowSub] = useState(false);
+  const [hideIntro, setHideIntro] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setShowSub(true), reduce ? 0 : SUBTEXT_DELAY_MS);
+    const t2 = window.setTimeout(() => setHideIntro(true), reduce ? 0 : HIDE_TEXT_DELAY_MS);
+    const t3 = window.setTimeout(() => setShowDirections(true), reduce ? 0 : DIRECTIONS_DELAY_MS);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [reduce]);
+
+  const count = collab.prints.length;
+
+  return (
+    <header id="collab-top" className="collab-portal" aria-label={collab.title}>
+      <PortalVideo collab={collab} reduce={reduce} />
+      <div className="collab-portal__shade" aria-hidden />
+
+      <div
+        className={cn("collab-portal__intro", hideIntro && showDirections && "is-out")}
+        aria-hidden={hideIntro && showDirections}
+      >
+        <h1 className="collab-portal__title">
+          Ascend Theory
+          <span className="collab-portal__title-x" aria-label="cross">
+            ×
+          </span>
+          <br className="md:hidden" />
+          NRATLU
+        </h1>
+        <p className={cn("collab-portal__sub", showSub && "is-in")}>
+          {collab.status} · {collab.headline}
+        </p>
+      </div>
+
+      <nav
+        className={cn("collab-portal__directions", showDirections && "is-on")}
+        aria-label="The three prints"
+        aria-hidden={!showDirections}
+      >
+        <p className="collab-portal__kicker">
+          Ascend Theory <b>×</b> NRATLU · {collab.dropName}
+        </p>
+        <ol className="collab-portal__list">
+          {collab.prints.map((print, i) => (
+            <li key={print.id}>
+              <button
+                type="button"
+                className="collab-portal__entry"
+                style={{ animationDelay: `${((count - i) * ENTRY_STAGGER_S).toFixed(1)}s` }}
+                disabled={!showDirections}
+                onClick={() => onEnter(print.id)}
+              >
+                <span className="collab-portal__entry-no">{print.number}</span>
+                {print.title}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
+
+      <div
+        className={cn("collab-portal__social", showDirections && "is-on")}
+        aria-hidden={!showDirections}
+      >
+        <SocialLinks />
+      </div>
+
+      <button
+        type="button"
+        className={cn("collab-portal__cue", showDirections && "is-on")}
+        onClick={() => onEnter(collab.prints[0]!.id)}
+        aria-hidden={!showDirections}
+        tabIndex={showDirections ? 0 : -1}
+      >
+        Scroll
+        <span className="collab-portal__cue-line" aria-hidden />
+      </button>
+    </header>
+  );
+}
+
+/* ─────────────────────────────── Prints ─────────────────────────────── */
+
+const copyContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.15 } },
+};
+
+const copyItem: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE } },
+};
 
 function PrintSection({
   print,
@@ -113,184 +262,158 @@ function PrintSection({
   collab: Collab;
   onNavigate: (id: string) => void;
 }) {
-  const prev = collab.prints[index - 1];
+  const reduce = useReducedMotion();
   const next = collab.prints[index + 1];
-  const isTall = print.ratio < 0.8;
+  const total = String(collab.prints.length).padStart(2, "0");
+  const tall = print.ratio < 0.8;
+  const motionProps = reduce
+    ? {}
+    : {
+        initial: "hidden" as const,
+        whileInView: "visible" as const,
+        viewport: { once: true, amount: 0.35 },
+      };
 
   return (
     <section
       id={print.id}
-      className={cn("collab-print", index % 2 === 1 && "collab-print--reverse")}
-      style={{ "--print-tone": print.tone } as CSSProperties}
+      className={cn(
+        "collab-print",
+        index % 2 === 1 && "collab-print--reverse",
+        tall && "collab-print--tall",
+      )}
+      style={
+        {
+          "--print-tone": print.tone,
+          "--print-ratio": print.ratio.toFixed(4),
+        } as CSSProperties
+      }
       aria-labelledby={`${print.id}-title`}
     >
+      <div className="collab-print__fill" aria-hidden>
+        <AscendImage src={print.image} alt="" fill sizes="40vw" className="object-cover" />
+      </div>
+
       <div className="brand-shell collab-print__grid">
-        <figure className={cn("collab-print__art collab-art", isTall && "collab-print__art--tall")}>
-          <div className="collab-print__frame" style={{ aspectRatio: String(print.ratio) }}>
+        <motion.figure
+          className="collab-print__art collab-art"
+          {...(reduce
+            ? {}
+            : {
+                initial: { opacity: 0, scale: 0.96 },
+                whileInView: { opacity: 1, scale: 1 },
+                viewport: { once: true, amount: 0.3 },
+                transition: { duration: 1.1, ease: EASE },
+              })}
+        >
+          <div className="collab-print__frame">
             <AscendImage
               src={print.image}
               alt={print.alt}
               fill
-              sizes="(max-width: 900px) 100vw, 58vw"
+              sizes="(max-width: 899px) 100vw, 56vw"
               className="object-contain"
               priority={index === 0}
             />
           </div>
           <figcaption className="collab-print__caption">
-            Print {print.number} / {String(collab.prints.length).padStart(2, "0")} · {collab.title}
+            Print {print.number} / {total} · {collab.title}
           </figcaption>
-        </figure>
+        </motion.figure>
 
-        <div className="collab-print__copy">
-          <p className="collab-print__number" aria-hidden>
-            {print.number}
-          </p>
-          <p className="brand-eyebrow">
-            {collab.dropName} · Print {print.number}
-          </p>
-          <h2 id={`${print.id}-title`} className="collab-print__title">
+        <motion.div className="collab-print__copy" variants={copyContainer} {...motionProps}>
+          <motion.p variants={copyItem} className="collab-print__eyebrow">
+            <b>{print.number}</b> Print {print.number} / {total} · {print.pillar}
+          </motion.p>
+          <motion.h2 variants={copyItem} id={`${print.id}-title`} className="collab-print__title">
             {print.title}
-          </h2>
-          <p className="collab-print__line">{print.line}</p>
-          <p className="collab-print__body">{print.body}</p>
+          </motion.h2>
+          <motion.h3 variants={copyItem} className="collab-print__standard">
+            {print.standard}
+          </motion.h3>
+          <motion.p variants={copyItem} className="collab-print__body">
+            {print.body[0]}{" "}
+            <span className="collab-print__body-more">{print.body.slice(1).join(" ")}</span>
+          </motion.p>
+          <motion.blockquote variants={copyItem} className="collab-print__quote">
+            “{print.quote}”
+            <cite>{print.journal.kicker} · {print.journal.label}</cite>
+          </motion.blockquote>
 
-          <div className="collab-print__social">
-            <p className="collab-print__label">Drops first on</p>
+          <motion.div variants={copyItem} className="collab-print__reads">
+            <Link href={print.journal.href} className="collab-read">
+              <span className="collab-read__kicker">{print.journal.kicker}</span>
+              <span className="collab-read__label">{print.journal.label}</span>
+              <span className="collab-read__more">
+                Read more <span aria-hidden>→</span>
+              </span>
+            </Link>
+            <Link href={print.philosophy.href} className="collab-read">
+              <span className="collab-read__kicker">{print.philosophy.kicker}</span>
+              <span className="collab-read__label">The {print.philosophy.label} standard</span>
+              <span className="collab-read__more">
+                Read more <span aria-hidden>→</span>
+              </span>
+            </Link>
+          </motion.div>
+
+          <motion.div variants={copyItem} className="collab-print__foot">
             <SocialLinks />
-          </div>
-
-          <nav className="collab-print__pager" aria-label="Prints">
-            {prev ? (
-              <AnchorLink id={prev.id} onNavigate={onNavigate} className="collab-print__pager-link">
-                <span aria-hidden>←</span> {prev.number} {prev.title}
-              </AnchorLink>
-            ) : (
-              <AnchorLink id="collab-top" onNavigate={onNavigate} className="collab-print__pager-link">
-                <span aria-hidden>↑</span> The drop
-              </AnchorLink>
-            )}
-            {next ? (
-              <AnchorLink id={next.id} onNavigate={onNavigate} className="collab-print__pager-link collab-print__pager-link--next">
-                {next.number} {next.title} <span aria-hidden>→</span>
-              </AnchorLink>
-            ) : (
-              <AnchorLink id="instagram" onNavigate={onNavigate} className="collab-print__pager-link collab-print__pager-link--next">
-                Follow both pages <span aria-hidden>→</span>
-              </AnchorLink>
-            )}
-          </nav>
-        </div>
+            <button
+              type="button"
+              className="collab-print__next"
+              onClick={() => onNavigate(next ? next.id : "instagram")}
+            >
+              {next ? `${next.number} ${next.title}` : "Follow the drop"}
+              <span aria-hidden>↓</span>
+            </button>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
-export function CollabDropPage({ collab }: { collab: Collab }) {
-  const scrollToId = useAnchorScroll();
-  const printIds = collab.prints.map((p) => p.id);
-  const active = useActivePrint(printIds);
+function PrintRail({
+  collab,
+  active,
+  onNavigate,
+}: {
+  collab: Collab;
+  active: string | null;
+  onNavigate: (id: string) => void;
+}) {
+  const on = collab.prints.some((p) => p.id === active);
+  return (
+    <nav className={cn("collab-rail", on && "is-on")} aria-label="Prints" aria-hidden={!on}>
+      {collab.prints.map((print) => (
+        <button
+          key={print.id}
+          type="button"
+          tabIndex={on ? 0 : -1}
+          className={cn("collab-rail__link", active === print.id && "is-active")}
+          onClick={() => onNavigate(print.id)}
+          aria-label={`Print ${print.number}: ${print.title}`}
+          aria-current={active === print.id ? "true" : undefined}
+        >
+          <span className="collab-rail__no">{print.number}</span>
+          <span className="collab-rail__tick" />
+        </button>
+      ))}
+    </nav>
+  );
+}
 
-  // Keep the active print visible in the horizontally scrolling index on phones.
-  useEffect(() => {
-    if (!active) return;
-    const link = document.querySelector<HTMLElement>(`.collab-index__link[href="#${active}"]`);
-    link?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-  }, [active]);
+/* ─────────────────────────────── Page ─────────────────────────────── */
+
+export function CollabDropPage({ collab }: { collab: Collab }) {
+  const scrollToId = useSectionScroll();
+  const [ids] = useState(() => collab.prints.map((p) => p.id));
+  const active = useActiveSection(ids);
 
   return (
     <BrandSiteLayout className="page-collab" canvasClassName="collab-canvas">
-      {/* ── Hero ── */}
-      <header id="collab-top" className="collab-hero">
-        <div className="collab-hero__triptych collab-art" aria-hidden>
-          {collab.prints.map((print, i) => (
-            <div key={print.id} className={cn("collab-hero__panel", `collab-hero__panel--${i + 1}`)}>
-              <AscendImage
-                src={print.image}
-                alt=""
-                fill
-                priority
-                sizes="(max-width: 768px) 60vw, 34vw"
-                className="object-cover object-center"
-              />
-            </div>
-          ))}
-          <div className="collab-hero__shade" />
-        </div>
-
-        <div className="brand-shell collab-hero__copy">
-          <p className="brand-eyebrow collab-hero__status">
-            <span className="collab-hero__pulse" aria-hidden />
-            {collab.status} · {collab.dropName}
-          </p>
-          <h1 className="collab-hero__title">
-            <span>Ascend Theory</span>
-            <span className="collab-hero__x" aria-label="cross">×</span>
-            <span>NRATLU</span>
-          </h1>
-          <p className="collab-hero__headline">{collab.headline}</p>
-          {collab.statement.map((line) => (
-            <p key={line} className="brand-voice collab-hero__statement">
-              {line}
-            </p>
-          ))}
-
-          <div className="collab-hero__actions">
-            <AnchorLink id={collab.prints[0]!.id} onNavigate={scrollToId} className="collab-btn collab-btn--primary">
-              See the prints <span aria-hidden>↓</span>
-            </AnchorLink>
-            <a
-              href={collab.partner.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="collab-btn"
-              aria-label={collab.partner.label}
-            >
-              <InstagramGlyph /> {collab.partner.handle}
-            </a>
-            <a
-              href={collab.house.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="collab-btn"
-              aria-label={collab.house.label}
-            >
-              <InstagramGlyph /> {collab.house.handle}
-            </a>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Sticky print index — every print one tap away ── */}
-      <nav className="collab-index" aria-label="Prints in this drop">
-        <div className="brand-shell collab-index__inner">
-          <span className="collab-index__label">{collab.dropName}</span>
-          <ul className="collab-index__list">
-            {collab.prints.map((print) => (
-              <li key={print.id}>
-                <AnchorLink
-                  id={print.id}
-                  onNavigate={scrollToId}
-                  className={cn("collab-index__link", active === print.id && "is-active")}
-                >
-                  <span className="collab-index__no">{print.number}</span>
-                  <span className="collab-index__name">{print.title}</span>
-                </AnchorLink>
-              </li>
-            ))}
-            <li>
-              <AnchorLink
-                id="instagram"
-                onNavigate={scrollToId}
-                className="collab-index__link"
-                ariaLabel="Instagram pages"
-              >
-                <InstagramGlyph />
-                <span className="collab-index__name">Follow</span>
-              </AnchorLink>
-            </li>
-          </ul>
-        </div>
-      </nav>
+      <CollabPortal collab={collab} onEnter={scrollToId} />
 
       {collab.prints.map((print, index) => (
         <PrintSection
@@ -301,6 +424,8 @@ export function CollabDropPage({ collab }: { collab: Collab }) {
           onNavigate={scrollToId}
         />
       ))}
+
+      <PrintRail collab={collab} active={active} onNavigate={scrollToId} />
 
       {/* ── Two pages, one drop ── */}
       <section id="instagram" className="collab-social" aria-labelledby="collab-social-title">

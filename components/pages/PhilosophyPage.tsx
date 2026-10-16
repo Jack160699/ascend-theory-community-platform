@@ -206,6 +206,7 @@ export function PhilosophyPage() {
 
         <section
           className="brand-shell philosophy-page__system"
+          id="the-system"
           aria-labelledby="philosophy-system-heading"
         >
           <PhilosophyReveal viewport={PHILOSOPHY_VIEWPORT} y={12} duration={0.85}>
