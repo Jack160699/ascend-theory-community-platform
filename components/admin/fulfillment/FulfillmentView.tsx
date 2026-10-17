@@ -174,18 +174,13 @@ export function FulfillmentView() {
       {/* Header */}
       <div className="bg-zinc-900/60 p-6 rounded-lg border border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded uppercase">
-              Phase 6 Operations
-            </span>
-            <h2 className="text-xl font-bold tracking-tight text-white font-sans">POD Manufacturing & Fulfilment Subsystem</h2>
-          </div>
+          <h2 className="text-sm font-sans font-medium text-white">Qikink orders</h2>
           <p className="text-xs text-white/60 mt-1">
-            Authoritative Ascend POD fulfillment engine. Provider adapters (Qikink), immutable snapshots, atomic claim-before-submit, and status tracking.
+            Each order is sent once with a frozen copy of its artwork, sizes and address, then tracked until delivery.
           </p>
         </div>
 
-        {/* Server-Driven Safety Status Badges (Requirement #29) */}
+        
         <div className="flex flex-wrap items-center gap-2">
           {safetyStatus.transportLocked && (
             <span className="px-2.5 py-1 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded font-bold uppercase">
@@ -370,7 +365,7 @@ export function FulfillmentView() {
                   <div className="flex justify-between items-center text-[10px] text-white/40 pt-1">
                     <span>Attempts: {f.attemptCount} | Provider Reference: {f.providerReference || "N/A"}</span>
                     <div className="flex items-center space-x-2">
-                      {/* Requirement #29: Button controls */}
+                      
                       {isReconciliation && (
                         <button
                           type="button"

@@ -389,14 +389,9 @@ export function DesignStudioView({ products }: DesignStudioViewProps) {
     <div className="space-y-6">
       {/* HEADER & SUB-NAVIGATION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div>
-          <h2 className="text-lg font-bold font-mono text-white uppercase tracking-wider">
-            Ascend HQ — Design Studio
-          </h2>
-          <p className="text-xs font-mono text-white/60">
-            Manage artwork assets, multi-location physical placement overlays, and product mockup references.
-          </p>
-        </div>
+        <p className="text-xs text-white/60">
+          Upload full-size PNG artwork, place it on the garment, and approve the mockup Qikink receives.
+        </p>
 
         <div className="flex bg-black/40 border border-white/10 rounded-md p-1">
           <button
@@ -513,7 +508,7 @@ export function DesignStudioView({ products }: DesignStudioViewProps) {
                     value={editingDesign.title || ""}
                     onChange={(e) => setEditingDesign({ ...editingDesign, title: e.target.value })}
                     className="w-full bg-black/60 border border-white/20 rounded p-2 text-xs font-mono text-white"
-                    placeholder="e.g. Apex Core Emblem Front"
+                    placeholder="e.g. Ember Rider — front"
                   />
                 </div>
                 <div>

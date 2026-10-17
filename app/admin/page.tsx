@@ -1,9 +1,11 @@
 import { requireAdmin } from "@/lib/admin/auth";
+import { getHqMetrics } from "@/lib/admin/metrics";
 import { AdminDashboardView } from "@/components/admin/views/AdminDashboardView";
 
-export default async function AdminDashboardPage() {
-  // Fail-closed server-side verification of admin session & active admin profile
-  await requireAdmin();
+export const dynamic = "force-dynamic";
 
-  return <AdminDashboardView />;
+export default async function AdminDashboardPage() {
+  await requireAdmin();
+  const metrics = await getHqMetrics();
+  return <AdminDashboardView metrics={metrics} />;
 }

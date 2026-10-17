@@ -232,14 +232,10 @@ export function PODMappingView({ products }: PODMappingViewProps) {
       {/* Header */}
       <div className="bg-zinc-900/60 p-6 rounded-lg border border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded uppercase">
-              Operational Metadata
-            </span>
-            <h2 className="text-xl font-bold tracking-tight text-white">Print-on-Demand Provider Mapping</h2>
-          </div>
+          <h2 className="text-sm font-medium text-white">How linking works</h2>
           <p className="text-xs text-white/60 mt-1">
-            Map internal Ascend garments & exact variant SKUs to external provider identifiers (Qikink, Printrove). Strictly internal operational data.
+            Pick a product, enter Qikink&apos;s SKU for every colour and size (Qikink → Products), then mark each one verified.
+            Only verified sizes can be sent to Qikink.
           </p>
         </div>
       </div>
