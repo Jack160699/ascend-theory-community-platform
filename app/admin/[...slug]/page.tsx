@@ -1,9 +1,16 @@
+import { notFound, redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/auth";
-import { AdminSubRouteView } from "@/components/admin/views/AdminSubRouteView";
+import { WearablesAdminContainer } from "@/components/admin/wearables/WearablesAdminContainer";
 
-export default async function AdminSubRoutePage() {
-  // Fail-closed server-side verification of admin session & active admin profile
+const WEARABLES_TABS = new Set(["products", "collections", "design-studio", "pod-mapping", "fulfillment"]);
+
+export default async function AdminSubRoutePage({ params }: { params: Promise<{ slug: string[] }> }) {
   await requireAdmin();
+  const { slug } = await params;
 
-  return <AdminSubRouteView />;
+  if (slug[0] === "wearables") {
+    if (slug.length === 1) redirect("/admin/wearables/products");
+    if (slug.length === 2 && WEARABLES_TABS.has(slug[1]!)) return <WearablesAdminContainer />;
+  }
+  notFound();
 }

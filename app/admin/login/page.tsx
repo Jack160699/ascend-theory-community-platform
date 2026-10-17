@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield, Lock, ArrowRight, Sparkles, AlertCircle } from "lucide-react";
+import { Shield, ArrowRight, AlertCircle } from "lucide-react";
 import { AdminCard } from "@/components/admin/ui/AdminCard";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminLoadingState } from "@/components/admin/ui/AdminLoadingState";
@@ -102,19 +102,10 @@ function LoginFormContent() {
           disabled={loading}
           icon={loading ? <Shield className="h-4 w-4 animate-pulse" /> : <ArrowRight className="h-4 w-4" />}
         >
-          {loading ? "Authenticating Session..." : "Sign In to Ascend HQ"}
+          {loading ? "Signing in…" : "Sign in"}
         </AdminButton>
       </form>
 
-      <div className="mt-6 pt-4 border-t border-white/10 text-center space-y-2">
-        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400">
-          <Lock className="h-3.5 w-3.5 text-zinc-500" />
-          <span>Server-Validated Supabase SSR Security</span>
-        </div>
-        <p className="text-[10px] text-zinc-500">
-          Ascend Theory Platform Operations &bull; Phase 2 Auth Foundation
-        </p>
-      </div>
     </AdminCard>
   );
 }
@@ -130,14 +121,11 @@ export default function AdminLoginPage() {
             A
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-            ASCEND HQ <Sparkles className="h-4 w-4 text-amber-400" />
+            Ascend HQ
           </h1>
-          <p className="text-xs text-zinc-400 font-mono tracking-widest uppercase">
-            Unified Platform Control Center
-          </p>
         </div>
 
-        <Suspense fallback={<AdminLoadingState label="Loading Auth Gateway..." />}>
+        <Suspense fallback={<AdminLoadingState label="Loading…" />}>
           <LoginFormContent />
         </Suspense>
       </div>

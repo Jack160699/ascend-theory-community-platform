@@ -99,12 +99,11 @@ export function CodHqView() {
   const canMutate = ["owner", "admin"].includes(userRole);
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8">
       <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">COD Risk HQ & Returned Inventory</h1>
           <p className="text-sm text-neutral-400">
-            Operational COD risk decisions, daily exposure caps (Asia/Kolkata), and returned inventory reuse.
+            Approve COD orders before they go to Qikink, and reuse returned stock. Daily COD limit resets at midnight IST.
           </p>
         </div>
         <div className="text-right">

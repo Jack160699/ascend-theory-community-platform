@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import type { Product, Collection, WearablesOverviewStats, ProductVariant, ProductStatus } from "@/lib/wearables/types";
+import { usePathname } from "next/navigation";
+import type { Product, Collection, ProductVariant, ProductStatus } from "@/lib/wearables/types";
+import { navItemForPath } from "@/lib/admin/nav";
 import { calculateGrossMarginPaise, calculateMarginPercentage } from "@/lib/wearables/validation";
 
 import { DesignStudioView } from "./DesignStudioView";
@@ -11,7 +12,6 @@ import { FulfillmentView } from "../fulfillment/FulfillmentView";
 
 export function WearablesAdminContainer() {
   const pathname = usePathname();
-  const router = useRouter();
 
   const activeTab = pathname.includes("/design-studio")
     ? "design-studio"
@@ -21,9 +21,7 @@ export function WearablesAdminContainer() {
     ? "fulfillment"
     : pathname.includes("/collections")
     ? "collections"
-    : pathname.includes("/products")
-    ? "products"
-    : "overview";
+    : "products";
 
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -98,16 +96,6 @@ export function WearablesAdminContainer() {
     };
   }, []);
 
-  const stats: WearablesOverviewStats = {
-    publishedProductsCount: products.filter((p) => p.status === "active").length,
-    draftProductsCount: products.filter((p) => p.status === "draft").length,
-    activeVariantsCount: products.flatMap((p) => p.variants || []).filter((v) => v.isActive).length,
-    collectionsCount: collections.length,
-    productsMissingVariantsCount: products.filter((p) => (!p.variants || p.variants.length === 0)).length,
-    productsMissingImageryCount: products.filter((p) => !p.primaryImageUrl && (!p.galleryJson || p.galleryJson.length === 0)).length,
-    productsMissingProviderMappingCount: products.filter((p) => (p.variants || []).some((v) => v.providerCostPaise === 0)).length,
-  };
-
   const openNewProduct = () => {
     setEditingProduct({
       title: "",
@@ -179,75 +167,17 @@ export function WearablesAdminContainer() {
   });
 
   return (
-    <div className="space-y-8">
-      {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/10">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 text-xs font-mono tracking-wider uppercase bg-white/5 border border-white/15 text-white/70 rounded">
-              Wearables HQ
-            </span>
-            <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Ascend Catalogue Source of Truth
-            </span>
-          </div>
-          <h1 className="text-2xl font-light tracking-tight text-white mt-2">
-            Wearables Catalogue & Product Management
-          </h1>
-          <p className="text-sm text-white/50 mt-1">
-            Manage physical garment specs, active sizes/colors, authoritative prices, gross margins, and drop releases.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-zinc-400">{navItemForPath(pathname)?.description}</p>
+        {activeTab === "products" && (
           <button
             onClick={openNewProduct}
-            className="px-4 py-2 text-xs font-mono tracking-wider uppercase bg-white text-black hover:bg-white/90 transition font-medium rounded"
+            className="self-start rounded-md bg-white px-4 py-2 text-xs font-medium text-black transition hover:bg-white/90 sm:self-auto"
           >
-            + Create New Garment
+            + New product
           </button>
-        </div>
-      </div>
-
-      {/* HQ Navigation Sub-Tabs */}
-      <div className="flex border-b border-white/10 gap-8 text-sm overflow-x-auto">
-        <button
-          onClick={() => router.push("/admin/wearables")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "overview" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          Catalogue Overview
-        </button>
-        <button
-          onClick={() => router.push("/admin/wearables/products")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "products" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          Master Products ({products.length})
-        </button>
-        <button
-          onClick={() => router.push("/admin/wearables/collections")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "collections" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          Collections & Drops ({collections.length})
-        </button>
-        <button
-          onClick={() => router.push("/admin/wearables/design-studio")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "design-studio" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          Design Studio 🎨
-        </button>
-        <button
-          onClick={() => router.push("/admin/wearables/pod-mapping")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "pod-mapping" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          POD Mapping 🔗
-        </button>
-        <button
-          onClick={() => router.push("/admin/wearables/fulfillment")}
-          className={`pb-3 font-mono text-xs uppercase tracking-wider transition border-b-2 whitespace-nowrap ${activeTab === "fulfillment" ? "border-white text-white font-medium" : "border-transparent text-white/40 hover:text-white/70"}`}
-        >
-          POD Fulfilment 📦
-        </button>
+        )}
       </div>
 
       {activeTab === "design-studio" ? (
@@ -266,55 +196,6 @@ export function WearablesAdminContainer() {
         </div>
       ) : (
         <>
-          {/* Tab 1: Overview Dashboard */}
-          {activeTab === "overview" && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-white/5 border border-white/10 rounded">
-                  <div className="text-xs font-mono uppercase tracking-wider text-white/40">Published Products</div>
-                  <div className="text-2xl font-light text-white mt-1">{stats.publishedProductsCount}</div>
-                </div>
-                <div className="p-4 bg-white/5 border border-white/10 rounded">
-                  <div className="text-xs font-mono uppercase tracking-wider text-white/40">Draft Products</div>
-                  <div className="text-2xl font-light text-amber-400 mt-1">{stats.draftProductsCount}</div>
-                </div>
-                <div className="p-4 bg-white/5 border border-white/10 rounded">
-                  <div className="text-xs font-mono uppercase tracking-wider text-white/40">Active SKUs</div>
-                  <div className="text-2xl font-light text-emerald-400 mt-1">{stats.activeVariantsCount}</div>
-                </div>
-                <div className="p-4 bg-white/5 border border-white/10 rounded">
-                  <div className="text-xs font-mono uppercase tracking-wider text-white/40">Collections / Drops</div>
-                  <div className="text-2xl font-light text-white mt-1">{stats.collectionsCount}</div>
-                </div>
-              </div>
-
-              {/* Readiness Checks */}
-              <div className="p-6 bg-white/5 border border-white/10 rounded space-y-4">
-                <h3 className="text-sm font-mono uppercase tracking-wider text-white/80">Catalogue Readiness Diagnostics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-black/40 border border-white/10 rounded">
-                    <div className="text-xs font-mono text-white/50">Products Missing Variants</div>
-                    <div className={`text-xl font-light mt-1 ${stats.productsMissingVariantsCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                      {stats.productsMissingVariantsCount}
-                    </div>
-                  </div>
-                  <div className="p-4 bg-black/40 border border-white/10 rounded">
-                    <div className="text-xs font-mono text-white/50">Products Missing Imagery</div>
-                    <div className={`text-xl font-light mt-1 ${stats.productsMissingImageryCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                      {stats.productsMissingImageryCount}
-                    </div>
-                  </div>
-                  <div className="p-4 bg-black/40 border border-white/10 rounded">
-                    <div className="text-xs font-mono text-white/50">Products Missing Provider Cost Mapping</div>
-                    <div className={`text-xl font-light mt-1 ${stats.productsMissingProviderMappingCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                      {stats.productsMissingProviderMappingCount}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Tab 2: Products List */}
           {activeTab === "products" && (
             <div className="space-y-6">
