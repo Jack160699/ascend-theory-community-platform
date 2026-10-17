@@ -110,7 +110,9 @@ export async function getAllDesignsAdmin(): Promise<DesignAsset[]> {
         const storagePath = d.storage_path ? String(d.storage_path) : undefined;
         let previewUrl: string | undefined = undefined;
 
-        if (storagePath) {
+        if (storagePath && /^https?:\/\//.test(storagePath)) {
+          previewUrl = storagePath;
+        } else if (storagePath) {
           const { data: signedData } = await serviceClient.storage
             .from("design-artwork")
             .createSignedUrl(storagePath, 3600);
@@ -209,7 +211,7 @@ export async function saveDesignAdmin(
     }
 
     // Active design storage object existence check
-    if (status === "active" && design.storagePath) {
+    if (status === "active" && design.storagePath && !/^https?:\/\//.test(design.storagePath)) {
       const { data: fileData, error: fileErr } = await serviceClient.storage
         .from("design-artwork")
         .download(design.storagePath);

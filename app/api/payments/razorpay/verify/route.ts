@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { autoSubmitOrderToQikink } from "@/lib/fulfillment/qikink-sync";
+import { NextResponse, after } from "next/server";
 import { verifyRazorpayCheckoutCallback } from "@/lib/payments/razorpay";
 
 export async function POST(request: Request) {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error }, { status: result.status || 400 });
     }
 
+    after(() => autoSubmitOrderToQikink(ascendOrderId).then(() => undefined));
     return NextResponse.json({ ok: true, orderId: ascendOrderId, alreadyPaid: result.alreadyPaid });
   } catch (err) {
     console.error("[api/payments/razorpay/verify] Verification error:", err);

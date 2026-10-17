@@ -1,8 +1,6 @@
 /**
- * Phase 6 — Qikink POD Provider Adapter
- * Implements PODFulfillmentProvider for Qikink manufacturing integration.
- * Transport is HARD-LOCKED by safety guard (QIKINK_API_CONTRACT_VERIFIED = false)
- * until exact official Qikink API documentation and merchant credentials are provided.
+ * Qikink POD Provider Adapter — sends orders (with artwork, mockup and placement)
+ * to Qikink and reads back status, AWB and courier.
  */
 
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -17,12 +15,26 @@ import type {
   FulfillmentStatus,
 } from "./types";
 import { QikinkMockTransport } from "./qikink-mock";
+import type { PlacementLocation, PrintMethod } from "@/lib/wearables/design-types";
+import {
+  QikinkApiError,
+  QikinkClient,
+  extractQikinkOrderId,
+  extractShipment,
+  getQikinkConfig,
+  toOrderList,
+  toQikinkOrderNumber,
+  type QikinkDesign,
+  type QikinkLineItem,
+  type QikinkOrderPayload,
+} from "./qikink-client";
 
 /**
- * Server Safety Hard Lock Constant.
- * Must remain false until exact merchant API contract is verified.
+ * Qikink's documented API contract (token / order create / order read) is implemented
+ * in ./qikink-client. Live transport additionally requires QIKINK_FULFILLMENT_ENABLED=true
+ * and merchant credentials (QIKINK_CLIENT_ID, QIKINK_CLIENT_SECRET).
  */
-export const QIKINK_API_CONTRACT_VERIFIED = false;
+export const QIKINK_API_CONTRACT_VERIFIED = true;
 
 export function redactSecrets<T>(data: T): T {
   if (data === null || data === undefined) return data;
@@ -59,14 +71,13 @@ export function redactSecrets<T>(data: T): T {
 export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
   readonly providerSlug = "qikink" as const;
 
-  // Requirement #13: Honest capability reporting for unverified Qikink API contract
   readonly capabilities: ProviderCapabilityModel = {
     submitOrder: true,
-    orderLookup: false,
-    cancellation: false,
+    orderLookup: true,
+    cancellation: false, // Qikink has no cancel API
     walletBalance: false,
-    webhookStatus: false,
-    pollingStatus: false,
+    webhookStatus: false, // Qikink has no webhooks
+    pollingStatus: true,
   };
 
   private mockTransport?: QikinkMockTransport;
@@ -76,34 +87,93 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
   }
 
   validateConfiguration(): { isValid: boolean; error?: string } {
-    if (!QIKINK_API_CONTRACT_VERIFIED) {
-      return {
-        isValid: false,
-        error: "Qikink API contract is unverified (QIKINK_API_CONTRACT_VERIFIED = false). Production transport remains hard-locked.",
-      };
+    if (process.env.QIKINK_FULFILLMENT_ENABLED !== "true") {
+      return { isValid: false, error: "Qikink sending is switched off (QIKINK_FULFILLMENT_ENABLED is not \"true\")." };
     }
-
-    const enabled = process.env.QIKINK_FULFILLMENT_ENABLED === "true";
-    if (!enabled) {
-      return {
-        isValid: false,
-        error: "QIKINK_FULFILLMENT_ENABLED is set to false (Production transport disabled by safety guard)",
-      };
-    }
-    const apiKey = process.env.QIKINK_API_KEY;
-    if (!apiKey || apiKey.trim() === "") {
-      return { isValid: false, error: "QIKINK_API_KEY environment variable is not configured" };
+    if (!getQikinkConfig()) {
+      return { isValid: false, error: "Qikink credentials missing — set QIKINK_CLIENT_ID and QIKINK_CLIENT_SECRET." };
     }
     return { isValid: true };
   }
 
+  private client(): QikinkClient {
+    const config = getQikinkConfig();
+    if (!config) throw new Error("Qikink credentials missing");
+    return new QikinkClient(config);
+  }
+
+  /** Builds Qikink's order payload from an immutable fulfilment snapshot. */
+  async buildPayload(snapshot: FulfillmentSnapshot): Promise<QikinkOrderPayload> {
+    const site = siteOrigin();
+    // Qikink works in rupees. Non-INR prices are converted with QIKINK_FX_TO_INR;
+    // a COD order must know the exact rupee amount the courier collects.
+    const currency = (snapshot.currency || "INR").toUpperCase();
+    const fx = currency === "INR" ? 1 : Number(process.env.QIKINK_FX_TO_INR || 0);
+    if (currency !== "INR" && !(fx > 0)) {
+      throw new Error(`Order is in ${currency}; set QIKINK_FX_TO_INR so Qikink gets rupee amounts.`);
+    }
+    const toInr = (n: number) => n * fx;
+    const lineItems: QikinkLineItem[] = [];
+    for (const item of snapshot.items || []) {
+      if (!item.providerExternalSku) throw new Error(`Item ${item.ascendSku} has no Qikink SKU mapped.`);
+      const mockup = absoluteUrl(item.mockupUrl, site);
+      const designs: QikinkDesign[] = [];
+      for (const pl of item.placements || []) {
+        const designLink = await artworkLink(pl.storagePath);
+        if (!designLink) throw new Error(`Artwork for ${pl.designTitle} could not be linked.`);
+        if (!mockup) throw new Error(`Item ${item.ascendSku} has no approved mockup image.`);
+        designs.push({
+          design_code: designCode(pl.designSlug, pl.designVersion, pl.placementLocation),
+          width_inches: mmToInches(pl.widthMm),
+          height_inches: mmToInches(pl.heightMm),
+          placement_sku: placementSku(pl.placementLocation),
+          design_link: designLink,
+          mockup_link: mockup,
+        });
+      }
+      if (designs.length === 0) throw new Error(`Item ${item.ascendSku} has no active design placement.`);
+      lineItems.push({
+        search_from_my_products: 0,
+        sku: item.providerExternalSku,
+        quantity: String(item.quantity),
+        price: moneyString(toInr(item.unitPrice ?? 0)),
+        print_type_id: printTypeId(item.placements[0]!.printMethod),
+        designs,
+      });
+    }
+
+    const ship = snapshot.customerShipping;
+    const [firstName, ...rest] = (ship.fullName || "").trim().split(/\s+/);
+    const total =
+      snapshot.orderTotal ??
+      (snapshot.items || []).reduce((sum, it) => sum + (it.unitPrice ?? 0) * it.quantity, 0);
+
+    return {
+      order_number: toQikinkOrderNumber(snapshot.orderNumber || snapshot.orderId),
+      qikink_shipping: "1",
+      gateway: snapshot.isCod ? "COD" : "Prepaid",
+      total_order_value: moneyString(Math.round(toInr(total))),
+      line_items: lineItems,
+      shipping_address: {
+        first_name: firstName || ship.fullName || "Customer",
+        last_name: rest.join(" "),
+        address1: (ship.addressLine1 || "").slice(0, 90),
+        address2: (ship.addressLine2 || "").slice(0, 90),
+        phone: (ship.phone || "").replace(/[^0-9+]/g, ""),
+        email: ship.email || "",
+        city: ship.city || "",
+        zip: ship.postalCode || "",
+        province: ship.state || "",
+        country_code: countryCode(ship.country),
+      },
+    };
+  }
+
   async submitOrder(snapshot: FulfillmentSnapshot): Promise<ProviderOrderSubmissionResult> {
-    // 1. Check if mock transport is explicitly provided (for unit testing)
     if (this.mockTransport) {
       return this.mockTransport.submitOrder(snapshot);
     }
 
-    // 2. Validate configuration safety guard
     const configCheck = this.validateConfiguration();
     if (!configCheck.isValid) {
       return {
@@ -114,46 +184,57 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
       };
     }
 
-    // 3. Generate transient time-limited signed URL for private artwork for each placement in snapshot items
-    const allItems = await Promise.all(
-      (snapshot.items || []).map(async (item) => {
-        const activePlacements = await Promise.all(
-          (item.placements || []).map(async (pl) => {
-            let signedUrl: string | undefined = undefined;
-            if (pl.storagePath && hasSupabaseConfig()) {
-              const serviceClient = createSupabaseServiceClient();
-              if (serviceClient) {
-                const { data } = await serviceClient.storage
-                  .from("design-artwork")
-                  .createSignedUrl(pl.storagePath, 3600);
-                signedUrl = data?.signedUrl || undefined;
-              }
-            }
-            return {
-              ...pl,
-              transientSignedUrl: signedUrl,
-            };
-          }),
-        );
-        return {
-          ...item,
-          placements: activePlacements,
-        };
-      }),
-    );
+    let payload: QikinkOrderPayload;
+    try {
+      payload = await this.buildPayload(snapshot);
+    } catch (err) {
+      return {
+        success: false,
+        normalizedStatus: "FAILED",
+        errorCode: "QIKINK_PAYLOAD_INVALID",
+        errorMessage: err instanceof Error ? err.message : "Could not build Qikink order",
+      };
+    }
 
-    // Unverified API Contract Safety Lock: Return QIKINK_API_CONTRACT_UNVERIFIED response
+    const client = this.client();
+    let body: unknown;
+    try {
+      body = await client.createOrder(payload);
+    } catch (err) {
+      if (err instanceof QikinkApiError) {
+        // A retry of an order Qikink already accepted is refused as a duplicate — find and bind it.
+        if (/duplicate/i.test(err.message)) {
+          const existing = await client.findOrderByNumber(payload.order_number).catch(() => null);
+          if (existing) {
+            const shipment = extractShipment(existing);
+            return {
+              success: true,
+              providerOrderId: extractQikinkOrderId(existing) || payload.order_number,
+              providerStatus: shipment.status || "Received",
+              normalizedStatus: "PROCESSING",
+              rawResponse: redactSecrets({ duplicateOf: existing }),
+            };
+          }
+        }
+        if (err.ambiguous) throw err; // → RECONCILIATION_REQUIRED + lookup by order number
+        return {
+          success: false,
+          normalizedStatus: "FAILED",
+          providerStatus: `HTTP ${err.httpStatus}`,
+          errorCode: err.httpStatus === 429 ? "429_RATE_LIMIT" : err.httpStatus >= 500 ? "500_SERVER_ERROR" : "QIKINK_REJECTED",
+          errorMessage: err.message,
+          rawResponse: redactSecrets({ response: err.body as Record<string, unknown> }),
+        };
+      }
+      throw err;
+    }
+
     return {
-      success: false,
-      normalizedStatus: "FAILED",
-      errorCode: "QIKINK_API_CONTRACT_UNVERIFIED",
-      errorMessage: "Exact official Qikink API documentation/merchant credentials not verified. External network calls remain locked.",
-      rawResponse: redactSecrets({
-        snapshot_summary: {
-          orderId: snapshot.orderId,
-          itemsCount: allItems.length,
-        },
-      }),
+      success: true,
+      providerOrderId: extractQikinkOrderId(body) || payload.order_number,
+      providerStatus: "Received",
+      normalizedStatus: "PROCESSING",
+      rawResponse: redactSecrets({ response: body as Record<string, unknown>, orderNumber: payload.order_number, env: client.env }),
     };
   }
 
@@ -161,66 +242,159 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
     if (this.mockTransport) {
       return this.mockTransport.getOrder(providerOrderId, merchantReference);
     }
-    const configCheck = this.validateConfiguration();
-    if (!configCheck.isValid) {
-      return { found: false };
+    if (!getQikinkConfig()) return { found: false };
+    const client = this.client();
+
+    let order: Record<string, unknown> | null = null;
+    const isOurNumber = providerOrderId && !/^\d+$/.test(providerOrderId);
+    if (providerOrderId && !isOurNumber) {
+      const list = toOrderList(await client.getOrderById(providerOrderId).catch(() => null));
+      order = list[0] ?? null;
     }
-    return { found: false };
+    if (!order) {
+      const ref = merchantReference || providerOrderId;
+      const number = toQikinkOrderNumber(ref.replace(/^ASCEND-ORD-/, ""));
+      order = await client.findOrderByNumber(number).catch(() => null);
+    }
+    if (!order) return { found: false };
+
+    const shipment = extractShipment(order);
+    return {
+      found: true,
+      providerOrderId: extractQikinkOrderId(order) || providerOrderId,
+      providerStatus: shipment.status,
+      normalizedStatus: shipment.status ? this.normalizeStatus(shipment.status) : "PROCESSING",
+      awb: shipment.awb,
+      courier: shipment.courier,
+      rawResponse: redactSecrets({ order }),
+    };
   }
 
   async getBalance(): Promise<ProviderBalanceResult> {
     if (this.mockTransport) {
       return this.mockTransport.getBalance();
     }
-    return {
-      supported: false,
-      message: "Qikink wallet balance inquiry requires verified merchant API credentials.",
-    };
+    return { supported: false, message: "Qikink's API does not expose wallet balance." };
   }
 
-  /**
-   * REAL QIKINK STATUS MAP PENDING VERIFIED MERCHANT API CONTRACT
-   * Until exact merchant API contract is verified, all external raw status strings map to UNKNOWN_PROVIDER_STATE.
-   */
   normalizeStatus(rawStatus: string): FulfillmentStatus {
     if (this.mockTransport) {
-      // Mock transport retains deterministic mapping for unit test scenarios
       const s = (rawStatus || "").toUpperCase().trim();
-      switch (s) {
-        case "PROCESSING":
-          return "PROCESSING";
-        case "ACTION_REQUIRED":
-          return "ACTION_REQUIRED";
-        case "OUT_OF_STOCK":
-          return "OUT_OF_STOCK";
-        case "MANIFESTED":
-          return "MANIFESTED";
-        case "IN_TRANSIT":
-          return "IN_TRANSIT";
-        case "DELIVERED":
-          return "DELIVERED";
-        case "RTO_INITIATED":
-          return "RTO_INITIATED";
-        case "RETURNED":
-          return "RETURNED";
-        case "CANCELLED":
-          return "CANCELLED";
-        case "FAILED":
-          return "FAILED";
-        default:
-          return "UNKNOWN_PROVIDER_STATE";
-      }
+      const known: FulfillmentStatus[] = [
+        "PROCESSING", "ACTION_REQUIRED", "OUT_OF_STOCK", "MANIFESTED", "IN_TRANSIT",
+        "DELIVERED", "RTO_INITIATED", "RETURNED", "CANCELLED", "FAILED",
+      ];
+      return known.includes(s as FulfillmentStatus) ? (s as FulfillmentStatus) : "UNKNOWN_PROVIDER_STATE";
     }
-
-    // Real adapter maps any raw status to UNKNOWN_PROVIDER_STATE while contract is unverified
-    return "UNKNOWN_PROVIDER_STATE";
+    return normalizeQikinkStatus(rawStatus);
   }
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
     const config = this.validateConfiguration();
-    if (!config.isValid) {
-      return { ok: false, message: config.error };
+    if (!config.isValid) return { ok: false, message: config.error };
+    try {
+      await this.client().getToken(true);
+      return { ok: true, message: `Connected to Qikink (${getQikinkConfig()!.env}).` };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "Qikink login failed" };
     }
-    return { ok: true, message: "Qikink adapter ready (disabled by safety guard)" };
   }
+}
+
+/* ───────────────────────── Mapping helpers ───────────────────────── */
+
+/** Qikink order / courier statuses → our fulfilment statuses. */
+const QIKINK_STATUS_MAP: [RegExp, FulfillmentStatus][] = [
+  [/rto.*(deliver|received|complete)|^returned|partially returned/i, "RETURNED"],
+  [/rto|return.*initiat|reverse pickup/i, "RTO_INITIATED"],
+  [/^delivered|delivered$/i, "DELIVERED"],
+  [/cancel/i, "CANCELLED"],
+  [/out of stock|oos/i, "OUT_OF_STOCK"],
+  [/hold|action required|design issue|query|pending approval/i, "ACTION_REQUIRED"],
+  [/not attempted|undelivered|unavailable|closed|otp|incorrect|incomplete address|maximum attempts|refused|lost|exception/i, "EXCEPTION"],
+  [/picked|in.?transit|shipped|dispatch|out for delivery|reschedul|misrout|oda|self collect/i, "IN_TRANSIT"],
+  [/ready to ship|manifest|packed|awb assigned|pickup scheduled/i, "MANIFESTED"],
+  [/printed|quality|qc/i, "PRINTED"],
+  [/pending|new|received|confirm|process|production|printing|accepted|open/i, "PROCESSING"],
+];
+
+export function normalizeQikinkStatus(rawStatus: string): FulfillmentStatus {
+  const s = (rawStatus || "").trim();
+  if (!s) return "UNKNOWN_PROVIDER_STATE";
+  for (const [re, status] of QIKINK_STATUS_MAP) if (re.test(s)) return status;
+  return "UNKNOWN_PROVIDER_STATE";
+}
+
+function envJson<T extends Record<string, unknown>>(name: string, fallback: T): T {
+  try {
+    const raw = process.env[name];
+    return raw ? { ...fallback, ...(JSON.parse(raw) as T) } : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Qikink placement codes — override with QIKINK_PLACEMENT_MAP='{"front":"fr",...}'. */
+export function placementSku(location: PlacementLocation): string {
+  const map = envJson<Record<string, string>>("QIKINK_PLACEMENT_MAP", {
+    front: "fr",
+    back: "bk",
+    left_chest: "lp",
+    right_chest: "rp",
+    left_sleeve: "ls",
+    right_sleeve: "rs",
+    neck: "nk",
+    custom: "fr",
+  });
+  return map[location] ?? "fr";
+}
+
+/** Qikink print type ids — 1 is DTG. Override with QIKINK_PRINT_TYPE_MAP='{"dtf":17}'. */
+export function printTypeId(method: PrintMethod): number {
+  const map = envJson<Record<string, number>>("QIKINK_PRINT_TYPE_MAP", { dtg: 1 });
+  return Number(map[method] ?? map.dtg ?? 1);
+}
+
+function mmToInches(mm: number): string {
+  return (Math.round((mm / 25.4) * 10) / 10).toString();
+}
+
+function moneyString(n: number): string {
+  return (Math.round(n * 100) / 100).toString();
+}
+
+function designCode(slug: string, version: number, location: string): string {
+  const base = `${slug || "design"}-v${version || 1}-${location}`.replace(/[^A-Za-z0-9_-]/g, "");
+  return base.slice(0, 40);
+}
+
+function countryCode(country?: string): string {
+  const c = (country || "").trim();
+  if (/^[A-Za-z]{2}$/.test(c)) return c.toUpperCase();
+  if (/^india$/i.test(c) || !c) return "IN";
+  return c.slice(0, 2).toUpperCase();
+}
+
+function siteOrigin(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.ascendtheory.in").replace(/\/$/, "");
+}
+
+function absoluteUrl(url: string | undefined, site: string): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//.test(url)) return url;
+  return `${site}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
+/** Qikink fetches the artwork after the order is placed, so the signed link lives 30 days. */
+const ARTWORK_LINK_TTL_S = 60 * 60 * 24 * 30;
+
+async function artworkLink(storagePath: string): Promise<string | undefined> {
+  if (!storagePath) return undefined;
+  if (/^https?:\/\//.test(storagePath)) return storagePath;
+  if (storagePath.startsWith("/")) return absoluteUrl(storagePath, siteOrigin());
+  if (!hasSupabaseConfig()) return undefined;
+  const serviceClient = createSupabaseServiceClient();
+  if (!serviceClient) return undefined;
+  const { data } = await serviceClient.storage.from("design-artwork").createSignedUrl(storagePath, ARTWORK_LINK_TTL_S);
+  return data?.signedUrl || undefined;
 }

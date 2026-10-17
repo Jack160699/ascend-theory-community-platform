@@ -11,7 +11,19 @@ import {
 } from "@/lib/fulfillment/fulfillment-store";
 import { evaluateOrderFulfillmentEligibility } from "@/lib/fulfillment/eligibility";
 
-import { QIKINK_API_CONTRACT_VERIFIED } from "@/lib/fulfillment/qikink";
+import { QIKINK_API_CONTRACT_VERIFIED, QikinkFulfillmentAdapter } from "@/lib/fulfillment/qikink";
+import { getQikinkConfig } from "@/lib/fulfillment/qikink-client";
+import { sweepEligibleOrders, syncOpenFulfillments } from "@/lib/fulfillment/qikink-sync";
+
+function qikinkConnection() {
+  const config = getQikinkConfig();
+  return {
+    credentialsSet: Boolean(config),
+    environment: config?.env ?? (process.env.QIKINK_ENV === "live" ? "live" : "sandbox"),
+    sendingEnabled: process.env.QIKINK_FULFILLMENT_ENABLED === "true",
+    autoSubmit: process.env.QIKINK_AUTO_SUBMIT !== "false",
+  };
+}
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession();
@@ -31,8 +43,9 @@ export async function GET(req: NextRequest) {
   const apiContractVerified = QIKINK_API_CONTRACT_VERIFIED;
 
   const safetyStatus = {
-    transportLocked: !fulfillmentEnabled || !apiContractVerified,
+    transportLocked: !fulfillmentEnabled || !apiContractVerified || !getQikinkConfig(),
     apiContractUnverified: !apiContractVerified,
+    qikink: qikinkConnection(),
   };
 
   const { searchParams } = new URL(req.url);
@@ -82,7 +95,7 @@ export async function POST(req: NextRequest) {
 
   const fulfillmentEnabled = process.env.QIKINK_FULFILLMENT_ENABLED === "true";
   const apiContractVerified = QIKINK_API_CONTRACT_VERIFIED;
-  const isTransportLocked = !fulfillmentEnabled || !apiContractVerified;
+  const isTransportLocked = !fulfillmentEnabled || !apiContractVerified || !getQikinkConfig();
 
   const adminId = session.id || null;
 
@@ -95,6 +108,24 @@ export async function POST(req: NextRequest) {
       if (isTransportLocked) {
         return NextResponse.json({ ok: false, error: "QIKINK_TRANSPORT_LOCKED" }, { status: 400 });
       }
+    }
+
+    if (action === "test_connection") {
+      const health = await new QikinkFulfillmentAdapter().healthCheck();
+      return NextResponse.json({ ok: health.ok, message: health.message, qikink: qikinkConnection() }, { status: health.ok ? 200 : 400 });
+    }
+
+    if (action === "sync_status") {
+      const synced = await syncOpenFulfillments(25);
+      return NextResponse.json({ ok: true, synced });
+    }
+
+    if (action === "sweep") {
+      if (isTransportLocked) {
+        return NextResponse.json({ ok: false, error: "QIKINK_TRANSPORT_LOCKED" }, { status: 400 });
+      }
+      const sweep = await sweepEligibleOrders();
+      return NextResponse.json({ ok: true, sweep });
     }
 
     if (action === "claim_and_submit" && orderId) {

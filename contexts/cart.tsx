@@ -62,6 +62,8 @@ export type AddProductInput = {
   priceDisplay?: string;
   currency?: string;
   pricePaise?: number;
+  /** Set false to add silently (e.g. "Buy now" goes straight to checkout). */
+  openDrawer?: boolean;
 };
 
 type ResolvedLine = { line: CartLine; product: CartProduct };
@@ -199,7 +201,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    setDrawerOpen(true);
+    if (input.openDrawer !== false) setDrawerOpen(true);
   }, []);
 
   /**

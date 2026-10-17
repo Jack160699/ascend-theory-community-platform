@@ -579,25 +579,34 @@ describe("Phase 6 — Qikink Fulfilment Integration & Parity Tests", () => {
   });
 
   // 10. UNKNOWN_PROVIDER_STATE Normalization
-  it("real adapter normalizeStatus returns UNKNOWN_PROVIDER_STATE while contract is unverified", () => {
+  it("real adapter normalizeStatus returns UNKNOWN_PROVIDER_STATE for unrecognised Qikink states", () => {
     const adapter = new QikinkFulfillmentAdapter();
     const status = adapter.normalizeStatus("SOME_CUSTOM_VENDOR_STATE");
     assert.strictEqual(status, "UNKNOWN_PROVIDER_STATE");
   });
 
-  // 11. Hard Transport Lock
-  it("hard-locks real transport while QIKINK_API_CONTRACT_VERIFIED = false", () => {
-    assert.strictEqual(QIKINK_API_CONTRACT_VERIFIED, false);
-    process.env.QIKINK_FULFILLMENT_ENABLED = "true";
-    process.env.QIKINK_API_KEY = "dummy_key";
-
+  // 11. Transport gate: needs the enable flag AND merchant credentials
+  it("only enables live Qikink transport with QIKINK_FULFILLMENT_ENABLED and credentials", () => {
+    assert.strictEqual(QIKINK_API_CONTRACT_VERIFIED, true);
     const adapter = new QikinkFulfillmentAdapter();
-    const config = adapter.validateConfiguration();
-    assert.strictEqual(config.isValid, false);
-    assert.strictEqual(config.error?.includes("unverified"), true);
 
     delete process.env.QIKINK_FULFILLMENT_ENABLED;
-    delete process.env.QIKINK_API_KEY;
+    process.env.QIKINK_CLIENT_ID = "cid";
+    process.env.QIKINK_CLIENT_SECRET = "secret";
+    assert.strictEqual(adapter.validateConfiguration().isValid, false);
+
+    process.env.QIKINK_FULFILLMENT_ENABLED = "true";
+    delete process.env.QIKINK_CLIENT_SECRET;
+    const missing = adapter.validateConfiguration();
+    assert.strictEqual(missing.isValid, false);
+    assert.strictEqual(missing.error?.includes("credentials"), true);
+
+    process.env.QIKINK_CLIENT_SECRET = "secret";
+    assert.strictEqual(adapter.validateConfiguration().isValid, true);
+
+    delete process.env.QIKINK_FULFILLMENT_ENABLED;
+    delete process.env.QIKINK_CLIENT_ID;
+    delete process.env.QIKINK_CLIENT_SECRET;
   });
 
   // 12. Secret Redaction Helper

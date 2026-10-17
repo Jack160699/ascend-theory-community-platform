@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { autoSubmitOrderToQikink } from "@/lib/fulfillment/qikink-sync";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminSession } from "@/lib/admin/auth";
 import { getAllOrdersAdmin, getOrderAdmin } from "@/lib/orders/store";
 import { getDailyCodExposureAdmin } from "@/lib/cod/exposure";
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: decisionRes.error }, { status: 500 });
     }
 
+    after(() => autoSubmitOrderToQikink(orderId).then(() => undefined));
     const updatedOrder = await getOrderAdmin(orderId);
     return NextResponse.json({ ok: true, order: updatedOrder });
   } catch (err) {

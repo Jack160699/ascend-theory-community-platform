@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { autoSubmitOrderToQikink } from "@/lib/fulfillment/qikink-sync";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "node:crypto";
 import { getOrderAdmin } from "@/lib/orders/store";
 import { processCodAdvanceCaptureAdmin } from "@/lib/cod/advance";
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: res.error }, { status: 400 });
     }
 
+    after(() => autoSubmitOrderToQikink(orderId).then(() => undefined));
     return NextResponse.json({ ok: true, codStatus: "COD_APPROVED", alreadyCaptured: Boolean(res.alreadyCaptured) });
   } catch (err) {
     console.error("[api/orders/cod/advance/verify]", err);

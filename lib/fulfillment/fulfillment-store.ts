@@ -20,7 +20,7 @@ import type {
 import { evaluateOrderFulfillmentEligibility } from "./eligibility";
 import { redactSecrets } from "./qikink";
 import { getFulfillmentProviderAdapter } from "./provider-registry";
-import { getAllDesignsAdmin, getAllProviderMappingsAdmin } from "@/lib/wearables/design-store";
+import { getAllDesignsAdmin, getAllMockupsAdmin, getAllProviderMappingsAdmin } from "@/lib/wearables/design-store";
 import { computeManufacturingIntentHash } from "./hash";
 import { validateFulfillmentSnapshotBeforeFirstSubmission } from "./snapshot-validator";
 import { isValidStatusTransition } from "./status-graph";
@@ -232,6 +232,13 @@ export async function createOrClaimFulfillmentAdmin(
   const designs = await getAllDesignsAdmin();
   const designsMap = new Map(designs.map((d) => [d.id, d]));
   const placementsList = designs.flatMap((d) => d.placements || []);
+  const mockups = (await getAllMockupsAdmin()).filter((m) => m.status === "approved");
+  const mockupFor = (productId?: string, variantId?: string): string | undefined => {
+    const forProduct = mockups.filter((m) => m.productId === productId);
+    const pickBest = (list: typeof forProduct) =>
+      list.sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder)[0]?.imageUrl;
+    return pickBest(forProduct.filter((m) => m.variantId === variantId)) ?? pickBest(forProduct.filter((m) => !m.variantId));
+  };
 
   const itemsSnapshots: FulfillmentItemSnapshot[] = [];
 
@@ -289,6 +296,9 @@ export async function createOrClaimFulfillmentAdmin(
       providerExternalVariantId: pVar.externalVariantId,
       providerExternalSku: pVar.externalSku || pVar.sku || "",
 
+      unitPrice: item.price,
+      mockupUrl: mockupFor(item.productId, item.variantId),
+
       placements: activePlacementSnapshots,
     });
   }
@@ -320,6 +330,7 @@ export async function createOrClaimFulfillmentAdmin(
     isCod,
     paymentMode: isCod ? "cod" : "online",
     currency: order.currency || "INR",
+    orderTotal: order.subtotal,
     createdAt: new Date().toISOString(),
   };
 

@@ -5,9 +5,10 @@ import type { FulfillmentRecord } from "@/lib/fulfillment/fulfillment-store";
 
 export function FulfillmentView() {
   const [fulfillments, setFulfillments] = useState<FulfillmentRecord[]>([]);
-  const [safetyStatus, setSafetyStatus] = useState<{ transportLocked: boolean; apiContractUnverified: boolean }>({
+  type QikinkConnection = { credentialsSet: boolean; environment: string; sendingEnabled: boolean; autoSubmit: boolean };
+  const [safetyStatus, setSafetyStatus] = useState<{ transportLocked: boolean; apiContractUnverified: boolean; qikink?: QikinkConnection }>({
     transportLocked: true,
-    apiContractUnverified: true,
+    apiContractUnverified: false,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export function FulfillmentView() {
         if (res.ok) {
           const data = (await res.json()) as {
             fulfillments?: FulfillmentRecord[];
-            safetyStatus?: { transportLocked: boolean; apiContractUnverified: boolean };
+            safetyStatus?: { transportLocked: boolean; apiContractUnverified: boolean; qikink?: QikinkConnection };
           };
           if (isMounted.current) {
             setFulfillments(data.fulfillments ?? []);
@@ -74,6 +75,37 @@ export function FulfillmentView() {
       } else {
         setSuccess(`Order ${inputOrderId} submitted for fulfillment successfully.`);
         setInputOrderId("");
+        await fetchFulfillments();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const runQikinkAction = async (action: "test_connection" | "sync_status" | "sweep") => {
+    setActionLoading(action);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/admin/wearables/fulfillment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data.message || data.error || "Qikink action failed");
+      } else if (action === "test_connection") {
+        setSuccess(data.message || "Connected to Qikink.");
+      } else if (action === "sync_status") {
+        const n = Array.isArray(data.synced) ? data.synced.length : 0;
+        setSuccess(`Checked ${n} open Qikink order${n === 1 ? "" : "s"} for status, AWB and courier.`);
+        await fetchFulfillments();
+      } else {
+        const sent = data.sweep?.submitted?.length ?? 0;
+        setSuccess(`Sent ${sent} waiting order${sent === 1 ? "" : "s"} to Qikink.`);
         await fetchFulfillments();
       }
     } catch (err) {
@@ -157,15 +189,66 @@ export function FulfillmentView() {
         <div className="flex flex-wrap items-center gap-2">
           {safetyStatus.transportLocked && (
             <span className="px-2.5 py-1 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded font-bold uppercase">
-              EXTERNAL TRANSPORT LOCKED
+              QIKINK NOT CONNECTED
             </span>
           )}
-          {safetyStatus.apiContractUnverified && (
-            <span className="px-2.5 py-1 text-[10px] bg-red-500/20 text-red-300 border border-red-500/30 rounded font-bold uppercase">
-              API CONTRACT UNVERIFIED
+          {!safetyStatus.transportLocked && (
+            <span className="px-2.5 py-1 text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded font-bold uppercase">
+              QIKINK LIVE
             </span>
           )}
         </div>
+      </div>
+
+      {/* Qikink connection */}
+      <div className="bg-zinc-900/40 border border-white/10 rounded-lg p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-3">
+          <h3 className="text-sm font-bold font-mono text-white uppercase">Qikink connection</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => runQikinkAction("test_connection")}
+              disabled={actionLoading !== null}
+              className="px-3 py-1.5 bg-white text-black font-bold rounded hover:bg-white/90 disabled:opacity-50"
+            >
+              {actionLoading === "test_connection" ? "Testing…" : "Test connection"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runQikinkAction("sync_status")}
+              disabled={actionLoading !== null}
+              className="px-3 py-1.5 border border-white/20 rounded hover:border-white/50 disabled:opacity-50"
+            >
+              {actionLoading === "sync_status" ? "Refreshing…" : "Refresh order status"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runQikinkAction("sweep")}
+              disabled={actionLoading !== null || safetyStatus.transportLocked}
+              className="px-3 py-1.5 border border-white/20 rounded hover:border-white/50 disabled:opacity-50"
+            >
+              {actionLoading === "sweep" ? "Sending…" : "Send waiting orders"}
+            </button>
+          </div>
+        </div>
+        <dl className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            ["Credentials", safetyStatus.qikink?.credentialsSet ? "Set" : "Missing"],
+            ["Environment", safetyStatus.qikink?.environment === "live" ? "Live" : "Sandbox"],
+            ["Sending", safetyStatus.qikink?.sendingEnabled ? "On" : "Off"],
+            ["Auto-send paid orders", safetyStatus.qikink?.autoSubmit ? "On" : "Off"],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-black/40 border border-white/10 rounded p-3">
+              <dt className="text-[10px] uppercase text-white/50">{label}</dt>
+              <dd className={`mt-1 font-bold ${value === "Missing" || value === "Off" ? "text-amber-300" : "text-emerald-300"}`}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-white/50 leading-relaxed">
+          Paid orders and approved cash-on-delivery orders go to Qikink automatically with each item&apos;s artwork, mockup and print
+          position. Only variants with a verified Qikink SKU (POD Mapping) can be sent. Qikink has no status push, so status, AWB and
+          courier are refreshed daily and whenever you press Refresh.
+        </p>
       </div>
 
       {error && (

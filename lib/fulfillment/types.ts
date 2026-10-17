@@ -81,6 +81,11 @@ export type FulfillmentItemSnapshot = {
   providerExternalVariantId: string;
   providerExternalSku: string;
 
+  /** Unit selling price (major units, order currency) — Qikink needs it per line. */
+  unitPrice?: number;
+  /** Public mockup image for this variant — Qikink requires a mockup link per design. */
+  mockupUrl?: string;
+
   placements: ActivePlacementSnapshot[];
 };
 
@@ -108,6 +113,8 @@ export type FulfillmentSnapshot = {
   isCod: boolean;
   paymentMode: "online" | "cod";
   currency: string;
+  /** Order total in major units — what Qikink's courier collects on COD. */
+  orderTotal?: number;
   requestHash?: string;
   createdAt: string;
 };

@@ -88,6 +88,17 @@ export async function validateFulfillmentSnapshotBeforeFirstSubmission(
       }
 
       // Requirement #9: Exact storage object existence check (fail closed if service client unavailable)
+      // Artwork hosted at a public URL (e.g. on the site): confirm it is reachable.
+      if (snapPl.storagePath && /^https?:\/\//.test(snapPl.storagePath)) {
+        try {
+          const head = await fetch(snapPl.storagePath, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(10_000) });
+          if (!head.ok) return { valid: false, reason: "snapshot_artwork_missing" };
+        } catch {
+          return { valid: false, reason: "snapshot_artwork_missing" };
+        }
+        continue;
+      }
+
       if (hasSupabaseConfig() && snapPl.storagePath) {
         const supabase = createSupabaseServiceClient();
         if (!supabase) {

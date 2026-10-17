@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { autoSubmitOrderToQikink } from "@/lib/fulfillment/qikink-sync";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "node:crypto";
 import { getOrderAdmin } from "@/lib/orders/store";
 import { verifyOtpChallengeAndApplyDecisionAdmin } from "@/lib/cod/otp";
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
     // Sanitize customer response DTO (Requirement #27: NEVER expose token hash)
     const { codConfirmationTokenHash, ...sanitizedOrder } = updatedOrder;
 
+    after(() => autoSubmitOrderToQikink(orderId).then(() => undefined));
     return NextResponse.json({
       ok: true,
       order: sanitizedOrder,
