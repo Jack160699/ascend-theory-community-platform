@@ -1,7 +1,10 @@
-import { confirmOrderPaid } from "@/lib/orders/create-order";
 import { getOrder } from "@/lib/orders/store";
 import { NextResponse } from "next/server";
 
+/**
+ * Read-only order status retrieval endpoint.
+ * Unauthenticated orderId confirmation without cryptographic payment proof has been REMOVED.
+ */
 export async function POST(request: Request) {
   try {
     const { orderId } = (await request.json()) as { orderId?: string };
@@ -9,19 +12,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing orderId." }, { status: 400 });
     }
 
-    const existing = await getOrder(orderId);
-    if (!existing) {
+    const order = await getOrder(orderId);
+    if (!order) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
 
-    if (existing.status !== "paid") {
-      await confirmOrderPaid(orderId);
-    }
-
-    const order = await getOrder(orderId);
+    // Returns authoritative order state without mutating order status
     return NextResponse.json({ order });
   } catch (err) {
     console.error("[api/orders/confirm]", err);
-    return NextResponse.json({ error: "Confirmation failed." }, { status: 500 });
+    return NextResponse.json({ error: "Order retrieval failed." }, { status: 500 });
   }
 }

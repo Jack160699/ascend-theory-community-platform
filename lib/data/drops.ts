@@ -1,5 +1,7 @@
 import { NRATLU_COLLAB, type CollabPrint } from "@/lib/data/collabs";
 import { ASCEND_PRODUCT_IMAGES } from "@/lib/product-images";
+import { getPublicProducts, getPublicProductBySlug } from "@/lib/wearables/store";
+import type { PublicProduct, PublicProductVariant } from "@/lib/wearables/types";
 
 export type DropCategory = "apparel" | "eyewear" | "accessories";
 
@@ -40,6 +42,8 @@ export type Drop = {
   };
   /** Apparel sizes — when set, a size must be chosen to buy. */
   sizes?: readonly string[];
+  /** Sellable colour × size variants (from the admin catalogue). */
+  variants?: PublicProductVariant[];
   /** Printed garments from a collaboration — drives the themed product page. */
   print?: DropPrint;
 };
@@ -137,6 +141,22 @@ function buildDrop(
     scarcity: core.scarcity,
     ...(core.sizes ? { sizes: core.sizes } : {}),
     ...(core.print ? { print: core.print } : {}),
+    // Static fallback variants — only used when the admin catalogue (Supabase) is not configured.
+    variants: (core.sizes ?? ["S", "M", "L"]).map((size, i) => ({
+      id: `var-${core.slug}-${size}`,
+      productId: `prod-${core.slug}`,
+      sku: `${core.slug.toUpperCase()}-${size}`,
+      size,
+      color: "black",
+      colorDisplay: "Black",
+      pricePaise: core.price * 100,
+      stockQuantity: core.scarcity.stockRemaining,
+      availabilityStatus: "available" as const,
+      isActive: true,
+      sortOrder: i + 1,
+      createdAt: "",
+      updatedAt: "",
+    })),
   };
 }
 
@@ -466,18 +486,101 @@ export const DROPS: readonly Drop[] = [
   }),
 ] as const;
 
+function publicProductToDropBase(p: PublicProduct): Drop {
+  const priceAmount = p.basePricePaise / 100;
+  const currency = p.currency || "INR";
+  const displayPrice = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(priceAmount);
+
+  const heroImage = p.primaryImageUrl || p.galleryJson[0]?.src || DROP_IMAGES.jacket;
+
+  return {
+    slug: p.slug,
+    name: p.title,
+    price: {
+      amount: priceAmount,
+      currency,
+      display: displayPrice,
+    },
+    description: p.description || "",
+    image: heroImage,
+    imageAlt: `${p.title} — ${p.subtitle || "Ascend Wearable"}`,
+    category: (p.category as DropCategory) || "apparel",
+    dropName: p.subtitle || "Ascend / Release",
+    tagline: p.subtitle || "Built for discipline.",
+    hero: {
+      image: heroImage,
+      alt: `${p.title} limited release`,
+    },
+    story: {
+      headline: p.subtitle || "Ascend Standard",
+      body: [p.description || "Designed for discipline."],
+    },
+    visuals: p.galleryJson.map((g, idx) => ({
+      src: g.src,
+      alt: g.alt || `${p.title} — visual ${idx + 1}`,
+      caption: g.caption || `Visual · 0${idx + 1}`,
+    })),
+    details: p.materials ? p.materials.split(",").map((s) => s.trim()) : ["Matte shell", "Editorial cut"],
+    scarcity: {
+      labels: ["Limited Release", "No Restock"],
+      stockRemaining: p.variants.reduce((acc, v) => acc + v.stockQuantity, 0),
+      totalAllocation: 100,
+    },
+    variants: p.variants,
+  };
+}
+
+/**
+ * Admin catalogue product → storefront Drop. Products that carry a collab print
+ * keep their themed page content from code; price, colours, sizes and stock
+ * always come from the admin catalogue.
+ */
+export function publicProductToDrop(p: PublicProduct): Drop {
+  const base = publicProductToDropBase(p);
+  const themed = NRATLU_TEES.find((t) => t.slug === p.slug);
+  if (!themed) return base;
+  const sizes = Array.from(new Set((p.variants ?? []).map((v) => v.size)));
+  return {
+    ...themed,
+    price: base.price,
+    variants: base.variants,
+    sizes,
+    scarcity: { ...themed.scarcity, stockRemaining: base.scarcity.stockRemaining },
+  };
+}
+
 const dropMap = new Map(DROPS.map((d) => [d.slug, d]));
 
 export function getDropBySlug(slug: string): Drop | undefined {
   return dropMap.get(slug);
 }
 
+export async function getDropBySlugAsync(slug: string): Promise<Drop | undefined> {
+  const p = await getPublicProductBySlug(slug);
+  if (!p) return undefined;
+  return publicProductToDrop(p);
+}
+
 export function getAllDropSlugs(): string[] {
   return DROPS.map((d) => d.slug);
 }
 
+export async function getAllDropSlugsAsync(): Promise<string[]> {
+  const products = await getPublicProducts();
+  return products.map((p) => p.slug);
+}
+
 export function getDropsByCategory(category: DropCategory): Drop[] {
   return DROPS.filter((d) => d.category === category);
+}
+
+export async function getDropsByCategoryAsync(category: DropCategory): Promise<Drop[]> {
+  const products = await getPublicProducts();
+  return products.filter((p) => p.category === category).map(publicProductToDrop);
 }
 
 export function getFeaturedDrop(): Drop {
@@ -491,4 +594,11 @@ export function getCollabTees(): readonly Drop[] {
 
 export function getTeeForPrint(printId: string): Drop | undefined {
   return NRATLU_TEES.find((d) => d.print?.artwork.id === printId);
+}
+
+export async function getFeaturedDropAsync(): Promise<Drop | undefined> {
+  const products = await getPublicProducts();
+  const featured = products.find((p) => p.isFeatured) || products[0];
+  if (!featured) return undefined;
+  return publicProductToDrop(featured);
 }

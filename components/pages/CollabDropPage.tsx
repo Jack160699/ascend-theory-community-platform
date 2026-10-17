@@ -7,7 +7,7 @@ import { SocialLinks } from "@/components/brand/SocialLinks";
 import { useCinematicScroll } from "@/contexts/cinematic-scroll";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import type { Collab, CollabPrint } from "@/lib/data/collabs";
-import { DROPS, getTeeForPrint } from "@/lib/data/drops";
+import { getTeeForPrint } from "@/lib/data/drops";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "next/link";
@@ -461,37 +461,8 @@ export function CollabDropPage({ collab }: { collab: Collab }) {
       </section>
 
       {/* ── Back into the rest of the house ── */}
-      <section className="collab-more" aria-labelledby="collab-more-title">
+      <section className="collab-more" aria-label="Explore the brand">
         <div className="brand-shell">
-          <div className="collab-more__head">
-            <p className="brand-eyebrow">Earlier drops</p>
-            <h2 id="collab-more-title" className="collab-more__title">
-              Still in the archive
-            </h2>
-            <Link href={BRAND_ROUTES.drops} className="collab-more__all">
-              All drops <span aria-hidden>→</span>
-            </Link>
-          </div>
-          <ul className="collab-more__grid">
-            {DROPS.filter((d) => !d.print).map((drop) => (
-              <li key={drop.slug}>
-                <Link href={BRAND_ROUTES.drop(drop.slug)} className="collab-more__card group">
-                  <span className="collab-more__thumb ascend-media-wrap">
-                    <AscendImage
-                      src={drop.image}
-                      alt={drop.imageAlt}
-                      fill
-                      sizes="(max-width: 640px) 50vw, 18rem"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  </span>
-                  <span className="brand-eyebrow mt-4 block">{drop.dropName}</span>
-                  <span className="collab-more__name">{drop.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-
           <PageExploreLinks excludeHref={BRAND_ROUTES.collab} />
         </div>
       </section>

@@ -1,14 +1,17 @@
 export type CartLine = {
   slug: string;
-  quantity: number;
-  /** Garment size for apparel with sizes (e.g. "M"). */
+  sku?: string;
+  variantId?: string;
   size?: string;
+  color?: string;
+  quantity: number;
+  // Display snapshot — carried in the cart line itself so DB-only products render correctly
+  title?: string;
+  image?: string;
+  priceDisplay?: string;
+  currency?: string;
+  pricePaise?: number;
 };
-
-/** Stable identity of a cart line — same product in two sizes is two lines. */
-export function cartLineKey(line: { slug: string; size?: string }): string {
-  return line.size ? `${line.slug}::${line.size}` : line.slug;
-}
 
 export type CartProduct = {
   slug: string;
@@ -20,8 +23,6 @@ export type CartProduct = {
   currency: string;
   priceDisplay: string;
   maxQuantity: number;
-  /** When present, a size must be chosen before adding to cart. */
-  sizes?: readonly string[];
 };
 
 export type CheckoutDetails = {

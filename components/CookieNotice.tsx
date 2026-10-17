@@ -6,6 +6,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "ascend:privacy-strip:dismissed:v1";
@@ -32,13 +33,14 @@ function subscribeToStorage(onStoreChange: () => void) {
 }
 
 export function CookieNotice() {
+  const pathname = usePathname();
   const reduce = useReducedMotion();
   const dismissedInStorage = useSyncExternalStore(
     subscribeToStorage,
     readDismissedFromStorage,
     () => true,
   );
-  const open = !dismissedInStorage;
+  const open = !dismissedInStorage && !pathname.startsWith("/admin");
 
   useEffect(() => {
     if (open) {

@@ -11,70 +11,144 @@ import { cn } from "@/lib/utils";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 const EASE = [0.33, 1, 0.68, 1] as const;
 
 /* ───────────────────────── Purchase state ───────────────────────── */
 
+type Variant = NonNullable<Drop["variants"]>[number];
+
+/** Colours and sizes come from the admin catalogue — only active, available variants are sellable. */
 function usePurchase(product: Drop) {
   const { addProduct } = useCart();
   const router = useRouter();
+  const variants = useMemo<Variant[]>(
+    () =>
+      (product.variants ?? [])
+        .filter((v) => v.isActive && v.availabilityStatus === "available" && v.stockQuantity > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [product.variants],
+  );
+  const colours = useMemo(() => {
+    const seen = new Map<string, string>();
+    variants.forEach((v) => {
+      if (!seen.has(v.color)) seen.set(v.color, v.colorDisplay || v.color);
+    });
+    return Array.from(seen, ([key, label]) => ({ key, label }));
+  }, [variants]);
+  const allSizes = useMemo(() => Array.from(new Set(variants.map((v) => v.size))), [variants]);
+
+  const [colour, setColour] = useState<string>(() => colours[0]?.key ?? "");
   const [size, setSize] = useState<string | null>(null);
   const [needsSize, setNeedsSize] = useState(false);
   const [added, setAdded] = useState(false);
+
+  const sizesInColour = useMemo(
+    () => new Set(variants.filter((v) => v.color === colour).map((v) => v.size)),
+    [variants, colour],
+  );
+  const selected = variants.find((v) => v.color === colour && v.size === size);
+
+  const pickColour = useCallback(
+    (c: string) => {
+      setColour(c);
+      if (size && !variants.some((v) => v.color === c && v.size === size)) setSize(null);
+    },
+    [size, variants],
+  );
 
   const pick = useCallback((s: string) => {
     setSize(s);
     setNeedsSize(false);
   }, []);
 
-  const ensureSize = useCallback(() => {
-    if (size) return size;
+  const ensureVariant = useCallback((): Variant | null => {
+    if (selected) return selected;
     setNeedsSize(true);
     document.getElementById("buy")?.scrollIntoView({ behavior: "smooth", block: "center" });
     return null;
-  }, [size]);
+  }, [selected]);
+
+  const add = useCallback(
+    (v: Variant, openDrawer: boolean) => {
+      const currency = product.price.currency;
+      addProduct({
+        slug: product.slug,
+        variantId: v.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        quantity: 1,
+        title: product.name,
+        image: product.print?.portraits[0]?.src ?? product.image,
+        priceDisplay: new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency,
+          maximumFractionDigits: 0,
+        }).format(v.pricePaise / 100),
+        currency,
+        pricePaise: v.pricePaise,
+        openDrawer,
+      });
+    },
+    [addProduct, product],
+  );
 
   const addToCart = useCallback(() => {
-    const s = ensureSize();
-    if (!s) return;
-    addProduct(product.slug, s);
+    const v = ensureVariant();
+    if (!v) return;
+    add(v, true);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
-  }, [addProduct, ensureSize, product.slug]);
+  }, [add, ensureVariant]);
 
   const buyNow = useCallback(() => {
-    const s = ensureSize();
-    if (!s) return;
-    addProduct(product.slug, s, { openDrawer: false });
+    const v = ensureVariant();
+    if (!v) return;
+    add(v, false);
     // Let the cart persist before the checkout page reads it.
     window.setTimeout(() => router.push(BRAND_ROUTES.checkout), 120);
-  }, [addProduct, ensureSize, product.slug, router]);
+  }, [add, ensureVariant, router]);
 
-  return { size, pick, needsSize, added, addToCart, buyNow };
+  return {
+    soldOut: variants.length === 0,
+    colours,
+    colour,
+    pickColour,
+    allSizes,
+    sizesInColour,
+    size,
+    pick,
+    needsSize,
+    added,
+    addToCart,
+    buyNow,
+  };
 }
 
 type Purchase = ReturnType<typeof usePurchase>;
 
-function SizePicker({ sizes, purchase, compact }: { sizes: readonly string[]; purchase: Purchase; compact?: boolean }) {
+function ColourPicker({ purchase }: { purchase: Purchase }) {
+  if (purchase.colours.length < 2) return null;
+  const current = purchase.colours.find((c) => c.key === purchase.colour);
   return (
-    <fieldset className={cn("pp-sizes", compact && "pp-sizes--compact", purchase.needsSize && "pp-sizes--alert")}>
+    <fieldset className="pp-sizes pp-colours">
       <legend className="pp-sizes__legend">
-        Size{purchase.size ? <b> · {purchase.size}</b> : null}
-        {purchase.needsSize ? <span className="pp-sizes__hint">Choose a size</span> : null}
+        Colour{current ? <b> · {current.label}</b> : null}
       </legend>
-      <div className="pp-sizes__row" role="radiogroup" aria-label="Size">
-        {sizes.map((s) => (
+      <div className="pp-colours__row" role="radiogroup" aria-label="Colour">
+        {purchase.colours.map((c) => (
           <button
-            key={s}
+            key={c.key}
             type="button"
             role="radio"
-            aria-checked={purchase.size === s}
-            className={cn("pp-size", purchase.size === s && "is-on")}
-            onClick={() => purchase.pick(s)}
+            aria-checked={purchase.colour === c.key}
+            className={cn("pp-colour", purchase.colour === c.key && "is-on")}
+            onClick={() => purchase.pickColour(c.key)}
           >
-            {s}
+            <span className="pp-colour__chip" data-colour={c.key.toLowerCase()} aria-hidden />
+            {c.label}
           </button>
         ))}
       </div>
@@ -82,7 +156,46 @@ function SizePicker({ sizes, purchase, compact }: { sizes: readonly string[]; pu
   );
 }
 
+function SizePicker({ purchase, compact }: { purchase: Purchase; compact?: boolean }) {
+  return (
+    <fieldset className={cn("pp-sizes", compact && "pp-sizes--compact", purchase.needsSize && "pp-sizes--alert")}>
+      <legend className="pp-sizes__legend">
+        Size{purchase.size ? <b> · {purchase.size}</b> : null}
+        {purchase.needsSize ? <span className="pp-sizes__hint">Choose a size</span> : null}
+      </legend>
+      <div className="pp-sizes__row" role="radiogroup" aria-label="Size">
+        {purchase.allSizes.map((s) => {
+          const available = purchase.sizesInColour.has(s);
+          return (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={purchase.size === s}
+              disabled={!available}
+              title={available ? undefined : "Not available in this colour"}
+              className={cn("pp-size", purchase.size === s && "is-on")}
+              onClick={() => purchase.pick(s)}
+            >
+              {s}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function BuyButtons({ product, purchase }: { product: Drop; purchase: Purchase }) {
+  if (purchase.soldOut) {
+    return (
+      <div className="pp-buy__actions">
+        <button type="button" className="pp-btn" disabled>
+          Sold out
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="pp-buy__actions">
       <button type="button" className="pp-btn pp-btn--primary" onClick={purchase.buyNow}>
@@ -211,7 +324,8 @@ function BuySection({ product, print, purchase }: { product: Drop; print: DropPr
           <p className="pp-panel__price">{product.price.display}</p>
           <p className="pp-panel__standard">{art.standard}</p>
 
-          <SizePicker sizes={product.sizes ?? []} purchase={purchase} />
+          <ColourPicker purchase={purchase} />
+          <SizePicker purchase={purchase} />
           <BuyButtons product={product} purchase={purchase} />
 
           <dl className="pp-spec">
@@ -424,7 +538,7 @@ function StickyBuy({ product, purchase }: { product: Drop; purchase: Purchase })
             {purchase.size ? ` · Size ${purchase.size}` : ""}
           </p>
         </div>
-        <SizePicker sizes={product.sizes ?? []} purchase={purchase} compact />
+        <SizePicker purchase={purchase} compact />
         <button type="button" className="pp-btn pp-btn--primary" tabIndex={visible ? 0 : -1} onClick={purchase.buyNow}>
           Buy now
         </button>
