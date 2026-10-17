@@ -17,6 +17,7 @@ import {
   updateFulfillmentStatusAdmin,
 } from "./fulfillment-store";
 import { QikinkFulfillmentAdapter } from "./qikink";
+import { qikinkAutoSubmitEnabled } from "./qikink-client";
 import { ALLOWED_STATUS_TRANSITIONS } from "./status-graph";
 import type { FulfillmentStatus } from "./types";
 
@@ -30,7 +31,7 @@ export function isQikinkLive(): boolean {
 }
 
 function autoSubmitEnabled(): boolean {
-  return process.env.QIKINK_AUTO_SUBMIT !== "false" && isQikinkLive();
+  return qikinkAutoSubmitEnabled() && isQikinkLive();
 }
 
 export type AutoSubmitResult =

@@ -16,7 +16,7 @@ import type {
 } from "./types";
 import { QikinkMockTransport } from "./qikink-mock";
 import type { PlacementLocation, PrintMethod } from "@/lib/wearables/design-types";
-import {
+import { qikinkSendingEnabled, qikinkFxToInr,
   QikinkApiError,
   QikinkClient,
   extractQikinkOrderId,
@@ -31,7 +31,7 @@ import {
 
 /**
  * Qikink's documented API contract (token / order create / order read) is implemented
- * in ./qikink-client. Live transport additionally requires QIKINK_FULFILLMENT_ENABLED=true
+ * in ./qikink-client. Live transport needs credentials; QIKINK_FULFILLMENT_ENABLED=false switches it off
  * and merchant credentials (QIKINK_CLIENT_ID, QIKINK_CLIENT_SECRET).
  */
 export const QIKINK_API_CONTRACT_VERIFIED = true;
@@ -87,11 +87,11 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
   }
 
   validateConfiguration(): { isValid: boolean; error?: string } {
-    if (process.env.QIKINK_FULFILLMENT_ENABLED !== "true") {
-      return { isValid: false, error: "Qikink sending is switched off (QIKINK_FULFILLMENT_ENABLED is not \"true\")." };
+    if (!qikinkSendingEnabled()) {
+      return { isValid: false, error: "Qikink sending is switched off (QIKINK_FULFILLMENT_ENABLED=false)." };
     }
     if (!getQikinkConfig()) {
-      return { isValid: false, error: "Qikink credentials missing — set QIKINK_CLIENT_ID and QIKINK_CLIENT_SECRET." };
+      return { isValid: false, error: "Qikink credentials missing — set QIKINK_CLIENT_SECRET (and QIKINK_CLIENT_ID for live)." };
     }
     return { isValid: true };
   }
@@ -108,7 +108,7 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
     // Qikink works in rupees. Non-INR prices are converted with QIKINK_FX_TO_INR;
     // a COD order must know the exact rupee amount the courier collects.
     const currency = (snapshot.currency || "INR").toUpperCase();
-    const fx = currency === "INR" ? 1 : Number(process.env.QIKINK_FX_TO_INR || 0);
+    const fx = currency === "INR" ? 1 : qikinkFxToInr();
     if (currency !== "INR" && !(fx > 0)) {
       throw new Error(`Order is in ${currency}; set QIKINK_FX_TO_INR so Qikink gets rupee amounts.`);
     }

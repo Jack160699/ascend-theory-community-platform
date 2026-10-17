@@ -586,17 +586,14 @@ describe("Phase 6 — Qikink Fulfilment Integration & Parity Tests", () => {
   });
 
   // 11. Transport gate: needs the enable flag AND merchant credentials
-  it("only enables live Qikink transport with QIKINK_FULFILLMENT_ENABLED and credentials", () => {
+  it("enables Qikink transport from the secret alone in sandbox, with a kill switch", () => {
     assert.strictEqual(QIKINK_API_CONTRACT_VERIFIED, true);
     const adapter = new QikinkFulfillmentAdapter();
-
     delete process.env.QIKINK_FULFILLMENT_ENABLED;
-    process.env.QIKINK_CLIENT_ID = "cid";
-    process.env.QIKINK_CLIENT_SECRET = "secret";
-    assert.strictEqual(adapter.validateConfiguration().isValid, false);
-
-    process.env.QIKINK_FULFILLMENT_ENABLED = "true";
+    delete process.env.QIKINK_CLIENT_ID;
     delete process.env.QIKINK_CLIENT_SECRET;
+    delete process.env.QIKINK_ENV;
+
     const missing = adapter.validateConfiguration();
     assert.strictEqual(missing.isValid, false);
     assert.strictEqual(missing.error?.includes("credentials"), true);
@@ -604,7 +601,17 @@ describe("Phase 6 — Qikink Fulfilment Integration & Parity Tests", () => {
     process.env.QIKINK_CLIENT_SECRET = "secret";
     assert.strictEqual(adapter.validateConfiguration().isValid, true);
 
+    process.env.QIKINK_FULFILLMENT_ENABLED = "false";
+    assert.strictEqual(adapter.validateConfiguration().isValid, false);
     delete process.env.QIKINK_FULFILLMENT_ENABLED;
+
+    // Live never borrows the sandbox Client ID.
+    process.env.QIKINK_ENV = "live";
+    assert.strictEqual(adapter.validateConfiguration().isValid, false);
+    process.env.QIKINK_CLIENT_ID = "live-id";
+    assert.strictEqual(adapter.validateConfiguration().isValid, true);
+
+    delete process.env.QIKINK_ENV;
     delete process.env.QIKINK_CLIENT_ID;
     delete process.env.QIKINK_CLIENT_SECRET;
   });

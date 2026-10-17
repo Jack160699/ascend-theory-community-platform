@@ -7,9 +7,14 @@
  * Qikink has no product, availability, design-upload, cancel or webhook API.
  * Designs travel with each order (design_link / mockup_link / placement_sku).
  *
- * Env:
- *   QIKINK_CLIENT_ID, QIKINK_CLIENT_SECRET   merchant credentials (Qikink dashboard → API)
- *   QIKINK_ENV = "sandbox" | "live"         defaults to sandbox
+ * Env (only QIKINK_CLIENT_SECRET is required; the rest have safe defaults):
+ *   QIKINK_CLIENT_SECRET          merchant secret (Qikink dashboard → Integrations → Open API)
+ *   QIKINK_CLIENT_ID              defaults to Ascend's sandbox Client ID while QIKINK_ENV is sandbox
+ *   QIKINK_ENV                    "sandbox" (default) | "live" — live needs its own ID + secret
+ *   QIKINK_FULFILLMENT_ENABLED    "false" is the kill switch; anything else = on
+ *   QIKINK_AUTO_SUBMIT            on by default in live, off in sandbox (so real orders never
+ *                                 land in the test account); "true"/"false" overrides
+ *   QIKINK_FX_TO_INR              USD→INR rate for Qikink amounts (default 95)
  */
 
 export const QIKINK_SANDBOX_URL = "https://sandbox.qikink.com";
@@ -20,6 +25,32 @@ const TOKEN_TTL_MS = 3_400_000;
 const REQUEST_TIMEOUT_MS = 25_000;
 
 export type QikinkEnv = "sandbox" | "live";
+
+/** Ascend Theory's Qikink sandbox Client ID (an account identifier, not a secret). */
+export const ASCEND_QIKINK_SANDBOX_CLIENT_ID = "965356474489836";
+export const DEFAULT_FX_TO_INR = 95;
+
+export function qikinkEnv(): QikinkEnv {
+  return process.env.QIKINK_ENV?.trim().toLowerCase() === "live" ? "live" : "sandbox";
+}
+
+/** Kill switch: sending is on unless QIKINK_FULFILLMENT_ENABLED is explicitly "false". */
+export function qikinkSendingEnabled(): boolean {
+  return process.env.QIKINK_FULFILLMENT_ENABLED?.trim().toLowerCase() !== "false";
+}
+
+/** Paid orders go to Qikink automatically in live mode; in sandbox only when asked to. */
+export function qikinkAutoSubmitEnabled(): boolean {
+  const flag = process.env.QIKINK_AUTO_SUBMIT?.trim().toLowerCase();
+  if (flag === "true") return true;
+  if (flag === "false") return false;
+  return qikinkEnv() === "live";
+}
+
+export function qikinkFxToInr(): number {
+  const n = Number(process.env.QIKINK_FX_TO_INR);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_FX_TO_INR;
+}
 
 export type QikinkConfig = {
   clientId: string;
@@ -42,10 +73,11 @@ export class QikinkApiError extends Error {
 }
 
 export function getQikinkConfig(): QikinkConfig | null {
-  const clientId = process.env.QIKINK_CLIENT_ID?.trim();
+  const env = qikinkEnv();
+  const clientId =
+    process.env.QIKINK_CLIENT_ID?.trim() || (env === "sandbox" ? ASCEND_QIKINK_SANDBOX_CLIENT_ID : "");
   const clientSecret = process.env.QIKINK_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return null;
-  const env: QikinkEnv = process.env.QIKINK_ENV?.trim().toLowerCase() === "live" ? "live" : "sandbox";
   return { clientId, clientSecret, env, baseUrl: env === "live" ? QIKINK_LIVE_URL : QIKINK_SANDBOX_URL };
 }
 

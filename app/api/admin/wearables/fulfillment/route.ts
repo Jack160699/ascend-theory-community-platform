@@ -12,16 +12,21 @@ import {
 import { evaluateOrderFulfillmentEligibility } from "@/lib/fulfillment/eligibility";
 
 import { QIKINK_API_CONTRACT_VERIFIED, QikinkFulfillmentAdapter } from "@/lib/fulfillment/qikink";
-import { getQikinkConfig } from "@/lib/fulfillment/qikink-client";
+import {
+  getQikinkConfig,
+  qikinkAutoSubmitEnabled,
+  qikinkEnv,
+  qikinkSendingEnabled,
+} from "@/lib/fulfillment/qikink-client";
 import { sweepEligibleOrders, syncOpenFulfillments } from "@/lib/fulfillment/qikink-sync";
 
 function qikinkConnection() {
   const config = getQikinkConfig();
   return {
     credentialsSet: Boolean(config),
-    environment: config?.env ?? (process.env.QIKINK_ENV === "live" ? "live" : "sandbox"),
-    sendingEnabled: process.env.QIKINK_FULFILLMENT_ENABLED === "true",
-    autoSubmit: process.env.QIKINK_AUTO_SUBMIT !== "false",
+    environment: config?.env ?? qikinkEnv(),
+    sendingEnabled: qikinkSendingEnabled(),
+    autoSubmit: qikinkAutoSubmitEnabled(),
   };
 }
 
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const fulfillmentEnabled = process.env.QIKINK_FULFILLMENT_ENABLED === "true";
+  const fulfillmentEnabled = qikinkSendingEnabled();
   const apiContractVerified = QIKINK_API_CONTRACT_VERIFIED;
 
   const safetyStatus = {
@@ -93,7 +98,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const fulfillmentEnabled = process.env.QIKINK_FULFILLMENT_ENABLED === "true";
+  const fulfillmentEnabled = qikinkSendingEnabled();
   const apiContractVerified = QIKINK_API_CONTRACT_VERIFIED;
   const isTransportLocked = !fulfillmentEnabled || !apiContractVerified || !getQikinkConfig();
 

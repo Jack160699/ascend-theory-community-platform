@@ -245,9 +245,12 @@ export function FulfillmentView() {
           ))}
         </dl>
         <p className="text-white/50 leading-relaxed">
-          Paid orders and approved cash-on-delivery orders go to Qikink automatically with each item&apos;s artwork, mockup and print
-          position. Only variants with a verified Qikink SKU (POD Mapping) can be sent. Qikink has no status push, so status, AWB and
-          courier are refreshed daily and whenever you press Refresh.
+          Paid orders and approved cash-on-delivery orders go to Qikink with each item&apos;s artwork, mockup and print position.
+          {safetyStatus.qikink?.environment === "live"
+            ? " In live mode this happens automatically."
+            : " In sandbox mode nothing is sent automatically, so real orders never land in the test account — send test orders from the queue below, then switch to live credentials."}{" "}
+          Only variants with a verified Qikink SKU (POD Mapping) can be sent. Qikink has no status push, so status, AWB and courier are
+          refreshed daily and whenever you press Refresh.
         </p>
       </div>
 

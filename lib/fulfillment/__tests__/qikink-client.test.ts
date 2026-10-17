@@ -5,6 +5,9 @@ import {
   extractQikinkError,
   extractQikinkOrderId,
   extractShipment,
+  getQikinkConfig,
+  qikinkAutoSubmitEnabled,
+  qikinkFxToInr,
   qikinkOrderNumber,
   toQikinkOrderNumber,
 } from "../qikink-client";
@@ -179,12 +182,29 @@ describe("Qikink client — documented API contract", () => {
     delete process.env.QIKINK_FX_TO_INR;
   });
 
-  it("refuses a non-rupee order when no exchange rate is configured", async () => {
+  it("uses the default exchange rate and sandbox Client ID when not configured", () => {
     delete process.env.QIKINK_FX_TO_INR;
-    const adapter = new QikinkFulfillmentAdapter();
-    await assert.rejects(
-      adapter.buildPayload({ currency: "USD", items: [], customerShipping: {} } as unknown as FulfillmentSnapshot),
-      /QIKINK_FX_TO_INR/,
-    );
+    delete process.env.QIKINK_CLIENT_ID;
+    delete process.env.QIKINK_ENV;
+    assert.strictEqual(qikinkFxToInr(), 95);
+    process.env.QIKINK_CLIENT_SECRET = "s";
+    assert.strictEqual(getQikinkConfig()?.clientId, "965356474489836");
+    assert.strictEqual(getQikinkConfig()?.baseUrl, "https://sandbox.qikink.com");
+    delete process.env.QIKINK_CLIENT_SECRET;
+  });
+
+  it("auto-sends paid orders only in live mode unless overridden", () => {
+    delete process.env.QIKINK_AUTO_SUBMIT;
+    delete process.env.QIKINK_ENV;
+    assert.strictEqual(qikinkAutoSubmitEnabled(), false);
+    process.env.QIKINK_ENV = "live";
+    assert.strictEqual(qikinkAutoSubmitEnabled(), true);
+    process.env.QIKINK_AUTO_SUBMIT = "false";
+    assert.strictEqual(qikinkAutoSubmitEnabled(), false);
+    process.env.QIKINK_ENV = "sandbox";
+    process.env.QIKINK_AUTO_SUBMIT = "true";
+    assert.strictEqual(qikinkAutoSubmitEnabled(), true);
+    delete process.env.QIKINK_AUTO_SUBMIT;
+    delete process.env.QIKINK_ENV;
   });
 });
