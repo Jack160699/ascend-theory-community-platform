@@ -39,6 +39,18 @@ export type Collection = {
   updatedAt: string;
 };
 
+export type StudioProductInfo = {
+  garmentKey: string;
+  garmentName: string;
+  printType: string;
+  printLabel: string;
+  placement: string;
+  widthIn?: number;
+  heightIn?: number;
+  palette?: string[];
+  hasPhoto?: boolean;
+};
+
 export type Product = {
   id: string;
   slug: string;
@@ -57,8 +69,10 @@ export type Product = {
   seoTitle?: string;
   seoDescription?: string;
   primaryImageUrl?: string;
-  galleryJson: { src: string; alt?: string; caption?: string }[];
+  galleryJson: { src: string; alt?: string; caption?: string; colour?: string }[];
   sizeChartJson?: Record<string, unknown>;
+  /** Set for products made in the HQ studio (garment, print type, placement). */
+  studioJson?: StudioProductInfo | null;
   createdAt: string;
   updatedAt: string;
   variants?: ProductVariant[];

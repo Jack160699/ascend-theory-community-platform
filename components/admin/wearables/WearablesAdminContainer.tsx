@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import type { Product, Collection, ProductVariant, ProductStatus } from "@/lib/wearables/types";
 import { navItemForPath } from "@/lib/admin/nav";
+import { QuickPrice } from "./QuickPrice";
 import { calculateGrossMarginPaise, calculateMarginPercentage } from "@/lib/wearables/validation";
 
 import { DesignStudioView } from "./DesignStudioView";
@@ -229,7 +230,7 @@ export function WearablesAdminContainer() {
                       <th className="py-3 px-4">Garment Title</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Base Retail Price</th>
+                      <th className="py-3 px-4">Price</th>
                       <th className="py-3 px-4">Active Variants</th>
                       <th className="py-3 px-4">Est. Gross Margin</th>
                       <th className="py-3 px-4 text-right">Actions</th>
@@ -262,7 +263,9 @@ export function WearablesAdminContainer() {
                               </span>
                             </td>
                             <td className="py-3 px-4 font-mono text-xs text-white/60">{p.category}</td>
-                            <td className="py-3 px-4 font-mono text-xs">₹{price.toLocaleString("en-IN")}</td>
+                            <td className="py-3 px-4">
+                              <QuickPrice key={`${p.id}-${price}-${p.currency}`} productId={p.id} price={price} currency={p.currency} onSaved={() => void fetchData()} />
+                            </td>
                             <td className="py-3 px-4 font-mono text-xs">{activeVars.length} active SKUs</td>
                             <td className="py-3 px-4 font-mono text-xs">
                               {sampleVar ? (

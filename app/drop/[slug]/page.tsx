@@ -1,6 +1,7 @@
 import { CommerceShell } from "@/components/cart/CommerceShell";
 import { DropExperience } from "@/components/drop";
 import { PrintProductExperience } from "@/components/drop/PrintProductExperience";
+import { StudioProductExperience } from "@/components/drop/StudioProductExperience";
 import { AssessmentModalProvider } from "@/contexts/assessment-modal";
 import { getDropBySlugAsync, getAllDropSlugsAsync } from "@/lib/data/drops";
 import type { Metadata } from "next";
@@ -48,6 +49,8 @@ export default async function DropProductPage({ params }: PageProps) {
       <CommerceShell>
         {product.print ? (
           <PrintProductExperience product={product} />
+        ) : product.studio ? (
+          <StudioProductExperience product={product} />
         ) : (
           <DropExperience product={product} />
         )}

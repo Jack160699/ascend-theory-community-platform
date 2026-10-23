@@ -4,11 +4,17 @@ export type HqNavItem = {
   href: string;
   label: string;
   description: string;
-  icon: "dashboard" | "orders" | "products" | "collections" | "designs" | "skus" | "fulfilment" | "cod";
+  icon: "dashboard" | "studio" | "orders" | "products" | "collections" | "designs" | "skus" | "garments" | "fulfilment" | "cod";
 };
 
 export const HQ_NAV: HqNavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "dashboard", description: "Sales, orders and stock at a glance." },
+  {
+    href: "/admin/studio",
+    label: "New product",
+    icon: "studio",
+    description: "Turn a photo or artwork into a product with its Qikink print file.",
+  },
   { href: "/admin/orders", label: "Orders", icon: "orders", description: "Every order, its payment and where it is." },
   {
     href: "/admin/wearables/products",
@@ -35,6 +41,12 @@ export const HQ_NAV: HqNavItem[] = [
     description: "Link each colour and size to Qikink's SKU.",
   },
   {
+    href: "/admin/studio/garments",
+    label: "Qikink garments",
+    icon: "garments",
+    description: "Garments, colours, sizes and the Qikink SKU codes behind them.",
+  },
+  {
     href: "/admin/wearables/fulfillment",
     label: "Fulfilment",
     icon: "fulfilment",
@@ -50,11 +62,11 @@ export const HQ_NAV: HqNavItem[] = [
 
 export function navItemForPath(pathname: string): HqNavItem | undefined {
   if (pathname === "/admin") return HQ_NAV[0];
-  return HQ_NAV.filter((i) => i.href !== "/admin" && pathname.startsWith(i.href)).sort(
+  return HQ_NAV.filter((i) => i.href !== "/admin" && (pathname === i.href || pathname.startsWith(`${i.href}/`))).sort(
     (a, b) => b.href.length - a.href.length,
   )[0];
 }
 
 export function isNavItemActive(item: HqNavItem, pathname: string): boolean {
-  return item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+  return navItemForPath(pathname)?.href === item.href;
 }
