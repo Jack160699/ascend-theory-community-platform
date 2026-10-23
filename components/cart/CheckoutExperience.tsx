@@ -23,11 +23,13 @@ export function CheckoutExperience() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const checkoutTracked = useRef(false);
+  /** Set once an order is placed, so emptying the cart doesn't bounce the buyer to /drops. */
+  const orderPlaced = useRef(false);
 
   const onlineAvailable = isOnlinePaymentAvailableClient();
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || orderPlaced.current) return;
     if (resolvedLines.length === 0) {
       router.replace(BRAND_ROUTES.drops);
     }
@@ -94,6 +96,7 @@ export function CheckoutExperience() {
         num_items: result.order.items.reduce((n, i) => n + i.quantity, 0),
       });
 
+      orderPlaced.current = true;
       clear();
 
       if (result.paymentUrl) {

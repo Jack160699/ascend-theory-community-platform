@@ -16,6 +16,8 @@ export function CodHqView() {
 
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [decisionNote, setDecisionNote] = useState("");
 
   const fetchData = async () => {
     try {
@@ -59,8 +61,18 @@ export function CodHqView() {
     };
   }, []);
 
+  const DEFAULT_REASON: Record<string, string> = {
+    approve_cod: "Approved in HQ",
+    reject_cod: "Rejected in HQ",
+    hold_cod: "Held in HQ for review",
+    require_advance: "Advance payment required",
+    set_prepaid_only: "Prepaid only",
+  };
+
   const handleAction = async (action: string, orderId: string, extraBody: Record<string, unknown> = {}) => {
-    const reason = prompt("Enter mandatory decision reason:") || "Manual admin action";
+    const reason = decisionNote.trim() || DEFAULT_REASON[action] || "Manual admin action";
+    setActionError(null);
+    setActionMessage(null);
     try {
       const res = await fetch("/api/admin/commerce/cod", {
         method: "POST",
@@ -68,14 +80,15 @@ export function CodHqView() {
         body: JSON.stringify({ action, orderId, reason, ...extraBody }),
       });
       const json = await res.json();
-      if (res.ok) {
-        setActionMessage(`Action ${action} succeeded for order ${orderId}`);
+      if (res.ok && json.ok !== false) {
+        setActionMessage(`${action.replace(/_/g, " ")} — done for ${orderId}`);
+        setDecisionNote("");
         fetchData();
       } else {
-        alert(`Error: ${json.error}`);
+        setActionError(`${orderId}: ${json.error ?? `HTTP ${res.status}`}`);
       }
     } catch (err) {
-      alert(`Network error: ${String(err)}`);
+      setActionError(`Network error: ${String(err)}`);
     }
   };
 
@@ -118,6 +131,20 @@ export function CodHqView() {
         <div className="p-4 bg-emerald-950/30 border border-emerald-800 text-emerald-300 text-sm rounded">
           {actionMessage}
         </div>
+      )}
+      {actionError && (
+        <div className="p-4 bg-rose-950/30 border border-rose-800 text-rose-300 text-sm rounded">{actionError}</div>
+      )}
+      {canMutate && (
+        <label className="block text-xs text-neutral-400">
+          Note for your next decision (optional)
+          <input
+            value={decisionNote}
+            onChange={(e) => setDecisionNote(e.target.value)}
+            placeholder="e.g. Called the customer, confirmed address"
+            className="mt-1 block w-full max-w-md rounded border border-neutral-700 bg-black/40 px-3 py-1.5 text-sm text-white focus:border-neutral-500 focus:outline-none"
+          />
+        </label>
       )}
 
       {/* COD Orders Table */}
