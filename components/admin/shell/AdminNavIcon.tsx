@@ -1,8 +1,10 @@
-import { Layers, LayoutDashboard, Link2, Palette, Shirt, ShoppingBag, Truck, Wallet } from "lucide-react";
+import { Layers, LayoutDashboard, Link2, Palette, Shirt, ShoppingBag, Sparkles, Tags, Truck, Wallet } from "lucide-react";
 import type { HqNavItem } from "@/lib/admin/nav";
 
 const ICONS = {
   dashboard: LayoutDashboard,
+  studio: Sparkles,
+  garments: Tags,
   orders: ShoppingBag,
   products: Shirt,
   collections: Layers,

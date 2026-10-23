@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test lib/admin/__tests__/*.test.ts lib/payments/__tests__/*.test.ts lib/wearables/__tests__/*.test.ts lib/fulfillment/__tests__/*.test.ts lib/cod/__tests__/*.test.ts",
+    "test": "npx tsx --test lib/admin/__tests__/*.test.ts lib/payments/__tests__/*.test.ts lib/wearables/__tests__/*.test.ts lib/fulfillment/__tests__/*.test.ts lib/cod/__tests__/*.test.ts lib/studio/__tests__/*.test.ts",
     "optimize:images": "node scripts/optimize-cinematic-images.mjs",
     "world:images": "node scripts/download-world-images.mjs",
     "download:hero-video": "node scripts/download-hero-video.mjs",

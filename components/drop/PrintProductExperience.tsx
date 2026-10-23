@@ -20,7 +20,7 @@ const EASE = [0.33, 1, 0.68, 1] as const;
 type Variant = NonNullable<Drop["variants"]>[number];
 
 /** Colours and sizes come from the admin catalogue — only active, available variants are sellable. */
-function usePurchase(product: Drop) {
+export function usePurchase(product: Drop) {
   const { addProduct } = useCart();
   const router = useRouter();
   const variants = useMemo<Variant[]>(
@@ -127,7 +127,7 @@ function usePurchase(product: Drop) {
   };
 }
 
-type Purchase = ReturnType<typeof usePurchase>;
+export type Purchase = ReturnType<typeof usePurchase>;
 
 function ColourPicker({ purchase }: { purchase: Purchase }) {
   if (purchase.colours.length < 2) return null;

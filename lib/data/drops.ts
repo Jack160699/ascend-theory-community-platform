@@ -46,6 +46,13 @@ export type Drop = {
   variants?: PublicProductVariant[];
   /** Printed garments from a collaboration — drives the themed product page. */
   print?: DropPrint;
+  /** Products made in the HQ studio: garment, finish and per-colour images. */
+  studio?: {
+    garmentName: string;
+    printLabel: string;
+    placement: string;
+    gallery: { src: string; alt: string; colour?: string }[];
+  };
 };
 
 export type DropShot = {
@@ -531,6 +538,14 @@ function publicProductToDropBase(p: PublicProduct): Drop {
       totalAllocation: 100,
     },
     variants: p.variants,
+    studio: p.studioJson
+      ? {
+          garmentName: p.studioJson.garmentName,
+          printLabel: p.studioJson.printLabel,
+          placement: p.studioJson.placement,
+          gallery: p.galleryJson.map((g, idx) => ({ src: g.src, alt: g.alt || `${p.title} — ${idx + 1}`, colour: g.colour })),
+        }
+      : undefined,
   };
 }
 

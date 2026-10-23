@@ -20,6 +20,12 @@ export type PrintMethod =
   | "screen_print"
   | "embroidery"
   | "sublimation"
+  | "puff"
+  | "glow"
+  | "vinyl_gold"
+  | "vinyl_silver"
+  | "vinyl_rainbow"
+  | "vinyl_reflective"
   | "other";
 
 export type MappingStatus =

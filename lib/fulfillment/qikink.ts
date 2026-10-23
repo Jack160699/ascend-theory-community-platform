@@ -123,7 +123,7 @@ export class QikinkFulfillmentAdapter implements PODFulfillmentProvider {
         if (!designLink) throw new Error(`Artwork for ${pl.designTitle} could not be linked.`);
         if (!mockup) throw new Error(`Item ${item.ascendSku} has no approved mockup image.`);
         designs.push({
-          design_code: designCode(pl.designSlug, pl.designVersion, pl.placementLocation),
+          design_code: designCode(pl.designId || pl.designSlug, pl.designVersion, placementSku(pl.placementLocation)),
           width_inches: mmToInches(pl.widthMm),
           height_inches: mmToInches(pl.heightMm),
           placement_sku: placementSku(pl.placementLocation),
@@ -334,7 +334,10 @@ function envJson<T extends Record<string, unknown>>(name: string, fallback: T): 
   }
 }
 
-/** Qikink placement codes — override with QIKINK_PLACEMENT_MAP='{"front":"fr",...}'. */
+/**
+ * Qikink placement codes from Qikink's API docs: fr Front, bk Back, lp Left Pocket,
+ * rp Right Pocket, ls Left Shoulder, rs Right Shoulder. Override with QIKINK_PLACEMENT_MAP.
+ */
 export function placementSku(location: PlacementLocation): string {
   const map = envJson<Record<string, string>>("QIKINK_PLACEMENT_MAP", {
     front: "fr",
@@ -343,16 +346,31 @@ export function placementSku(location: PlacementLocation): string {
     right_chest: "rp",
     left_sleeve: "ls",
     right_sleeve: "rs",
-    neck: "nk",
+    neck: "bk",
     custom: "fr",
   });
   return map[location] ?? "fr";
 }
 
-/** Qikink print type ids — 1 is DTG. Override with QIKINK_PRINT_TYPE_MAP='{"dtf":17}'. */
+/** Qikink print_type_id values from Qikink's API docs. Override with QIKINK_PRINT_TYPE_MAP. */
+export const QIKINK_PRINT_TYPE_IDS: Record<PrintMethod, number> = {
+  dtg: 1,
+  screen_print: 1,
+  other: 1,
+  embroidery: 3,
+  puff: 6,
+  glow: 7,
+  vinyl_rainbow: 12,
+  vinyl_gold: 13,
+  vinyl_silver: 14,
+  vinyl_reflective: 15,
+  dtf: 17,
+  sublimation: 23,
+};
+
 export function printTypeId(method: PrintMethod): number {
-  const map = envJson<Record<string, number>>("QIKINK_PRINT_TYPE_MAP", { dtg: 1 });
-  return Number(map[method] ?? map.dtg ?? 1);
+  const map = envJson<Record<string, number>>("QIKINK_PRINT_TYPE_MAP", QIKINK_PRINT_TYPE_IDS);
+  return Number(map[method] ?? QIKINK_PRINT_TYPE_IDS[method] ?? 1);
 }
 
 function mmToInches(mm: number): string {
@@ -363,9 +381,13 @@ function moneyString(n: number): string {
   return (Math.round(n * 100) / 100).toString();
 }
 
-function designCode(slug: string, version: number, location: string): string {
-  const base = `${slug || "design"}-v${version || 1}-${location}`.replace(/[^A-Za-z0-9_-]/g, "");
-  return base.slice(0, 40);
+/**
+ * Qikink identifies artwork by design_code (new codes: max 20 characters), so the code changes
+ * whenever the artwork version changes: "AT" + 8 chars of the design id + version + placement.
+ */
+export function designCode(designRef: string, version: number, placementCode: string): string {
+  const ref = (designRef || "design").replace(/[^A-Za-z0-9]/g, "").slice(0, 8);
+  return `AT${ref}v${version || 1}${placementCode}`.slice(0, 20);
 }
 
 function countryCode(country?: string): string {

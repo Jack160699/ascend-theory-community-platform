@@ -22,6 +22,12 @@ export const VALID_PRINT_METHODS: PrintMethod[] = [
   "screen_print",
   "embroidery",
   "sublimation",
+  "puff",
+  "glow",
+  "vinyl_gold",
+  "vinyl_silver",
+  "vinyl_rainbow",
+  "vinyl_reflective",
   "other",
 ];
 

@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { hasSupabaseConfig } from "@/lib/supabase/env";
 import type {
+  StudioProductInfo,
   Product,
   ProductVariant,
   Collection,
@@ -163,7 +164,8 @@ export async function getPublicProducts(): Promise<PublicProduct[]> {
         seoTitle: p.seo_title ?? undefined,
         seoDescription: p.seo_description ?? undefined,
         primaryImageUrl: p.primary_image_url ?? undefined,
-        galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string }[]) || [],
+        galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string; colour?: string }[]) || [],
+        studioJson: (p.studio_json as StudioProductInfo | null) ?? null,
         createdAt: p.created_at,
         updatedAt: p.updated_at || p.created_at,
         variants: fullVariants.map(sanitizePublicVariant),
@@ -248,7 +250,8 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
       seoTitle: p.seo_title ?? undefined,
       seoDescription: p.seo_description ?? undefined,
       primaryImageUrl: p.primary_image_url ?? undefined,
-      galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string }[]) || [],
+      galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string; colour?: string }[]) || [],
+        studioJson: (p.studio_json as StudioProductInfo | null) ?? null,
       createdAt: p.created_at,
       updatedAt: p.updated_at || p.created_at,
       variants: variants.map(sanitizePublicVariant),
@@ -353,6 +356,7 @@ export async function getAuthoritativeVariantForCheckout(params: {
       createdAt: p.created_at,
       updatedAt: p.updated_at || p.created_at,
       galleryJson: p.gallery_json || [],
+      studioJson: p.studio_json ?? null,
     };
 
     const variant: ProductVariant = {
@@ -481,7 +485,8 @@ export async function getAllProductsAdmin(): Promise<Product[]> {
       seoTitle: p.seo_title ?? undefined,
       seoDescription: p.seo_description ?? undefined,
       primaryImageUrl: p.primary_image_url ?? undefined,
-      galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string }[]) || [],
+      galleryJson: (p.gallery_json as { src: string; alt?: string; caption?: string; colour?: string }[]) || [],
+        studioJson: (p.studio_json as StudioProductInfo | null) ?? null,
       createdAt: p.created_at,
       updatedAt: p.updated_at || p.created_at,
       variants: variantsMap.get(p.id) || [],

@@ -113,7 +113,7 @@ export function CheckoutExperience() {
   if (!hydrated || resolvedLines.length === 0) {
     return (
       <div className="drop-shell py-32">
-        <p className="brand-body text-white/50">Loading checkoutâ€¦</p>
+        <p className="brand-body text-white/50">Loading checkout…</p>
       </div>
     );
   }
@@ -122,10 +122,10 @@ export function CheckoutExperience() {
     <div className="drop-shell checkout-layout py-28 sm:py-32">
       <header className="checkout-header">
         <Link href={BRAND_ROUTES.drops} className="checkout-back">
-          â† Back to drops
+          ← Back to drops
         </Link>
         <h1 className="brand-headline mt-8">Checkout</h1>
-        <p className="brand-voice mt-4">Secure order Â· limited allocation</p>
+        <p className="brand-voice mt-4">Secure order · limited allocation</p>
       </header>
 
       <div className="checkout-grid">
@@ -240,7 +240,7 @@ export function CheckoutExperience() {
             className={cn("drop-cta checkout-submit", submitting && "is-pending")}
             disabled={submitting}
           >
-            {submitting ? "Processingâ€¦" : "Place order"}
+            {submitting ? "Processing…" : "Place order"}
           </button>
         </form>
 
