@@ -91,21 +91,34 @@ export function garmentSvg(shape: GarmentShape, colourHex: string, view: "front"
 }
 
 /** Where a placement sits on the illustration: centre x and top y, in canvas pixels. */
+/** Bottom of the front collar and back neckline on each illustration (canvas px). */
+const COLLAR: Record<GarmentShape, { front: number; back: number }> = {
+  tee: { front: 190, back: 162 },
+  oversized_tee: { front: 192, back: 162 },
+  hoodie: { front: 250, back: 345 },
+  sweatshirt: { front: 196, back: 162 },
+};
+
+/** Standard placement: front/back prints start 3 in below the collar; chest logos 2.5 in below, 4 in off-centre. */
+export const PLACEMENT_RULES = { belowCollarIn: 3, chestBelowCollarIn: 2.5, chestOffsetIn: 4, shoulderBelowCollarIn: 1 } as const;
+
+/** Where a placement sits on the illustration: centre x and top y, in canvas pixels. */
 export function mockupAnchor(shape: GarmentShape, placement: PlacementLocation): { cx: number; top: number } {
-  const chestTop = shape === "hoodie" ? 300 : 280;
+  const ppi = MOCKUP_PPI[shape];
+  const collar = COLLAR[shape];
   switch (placement) {
     case "left_chest":
-      return { cx: 612, top: chestTop - 10 };
+      return { cx: 500 + PLACEMENT_RULES.chestOffsetIn * ppi, top: collar.front + PLACEMENT_RULES.chestBelowCollarIn * ppi };
     case "right_chest":
-      return { cx: 388, top: chestTop - 10 };
+      return { cx: 500 - PLACEMENT_RULES.chestOffsetIn * ppi, top: collar.front + PLACEMENT_RULES.chestBelowCollarIn * ppi };
     case "left_sleeve":
-      return { cx: 800, top: 300 };
+      return { cx: shape === "oversized_tee" ? 820 : 800, top: collar.front + PLACEMENT_RULES.shoulderBelowCollarIn * ppi };
     case "right_sleeve":
-      return { cx: 200, top: 300 };
+      return { cx: shape === "oversized_tee" ? 180 : 200, top: collar.front + PLACEMENT_RULES.shoulderBelowCollarIn * ppi };
     case "back":
-      return { cx: 500, top: shape === "hoodie" ? 380 : 250 };
+      return { cx: 500, top: collar.back + PLACEMENT_RULES.belowCollarIn * ppi };
     default:
-      return { cx: 500, top: chestTop };
+      return { cx: 500, top: collar.front + PLACEMENT_RULES.belowCollarIn * ppi };
   }
 }
 

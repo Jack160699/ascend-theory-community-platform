@@ -557,7 +557,7 @@ export async function renderMockup(
   const artImg = await sharp(art).resize({ width: w, height: h, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
   const { cx, top } = mockupAnchor(opts.shape, opts.placement);
   return sharp(garment)
-    .composite([{ input: artImg, left: Math.round(cx - w / 2), top }])
+    .composite([{ input: artImg, left: Math.round(cx - w / 2), top: Math.round(top) }])
     .webp({ quality: 88 })
     .toBuffer();
 }

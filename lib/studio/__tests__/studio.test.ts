@@ -164,3 +164,22 @@ describe("Studio — image pipeline", () => {
     assert.strictEqual(isFabricBlend([184, 32, 42], [[201, 162, 63]], [27, 27, 29]), false);
   });
 });
+
+describe("Studio — automatic placement", () => {
+  it("sizes front designs from their shape within comfortable and Qikink limits", async () => {
+    const { defaultWidthIn: w, getPrintType: t } = await import("../print-types");
+    assert.strictEqual(w(t("dtg")!, "front", 0.5), 11); // wide design → 11 in wide
+    assert.strictEqual(w(t("dtg")!, "front", 1.6), 7.5); // tall design → 12 in tall
+    assert.strictEqual(w(t("embroidery")!, "front", 1.1), 3.2); // embroidery fits 3.5 × 3.5 in
+    assert.strictEqual(w(t("embroidery")!, "front", 0.4), 3.5);
+  });
+
+  it("places front prints 3 in below the collar, centred; chest logos 4 in off-centre", async () => {
+    const { mockupAnchor, MOCKUP_PPI } = await import("../mockup-svg");
+    const front = mockupAnchor("tee", "front");
+    assert.strictEqual(front.cx, 500);
+    assert.strictEqual(front.top, 190 + 3 * MOCKUP_PPI.tee);
+    const chest = mockupAnchor("tee", "left_chest");
+    assert.strictEqual(chest.cx, 500 + 4 * MOCKUP_PPI.tee);
+  });
+});

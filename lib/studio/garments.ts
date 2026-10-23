@@ -24,7 +24,7 @@ const ALL_FINISHES: PrintMethod[] = ["dtg", "dtf", "embroidery", "puff", "vinyl_
 /** Mirrors the seed in the 20261023 migration; used when Supabase isn't configured (dev/tests). */
 export const DEFAULT_GARMENTS: Garment[] = [
   { id: "g-oversized", key: "oversized_tee", name: "Oversized tee", qikinkStyle: "US22", skuPrefix: "UOsHs", skuConfirmed: false, colours: STANDARD_COLOURS, sizes: STANDARD_SIZES, baseCostInr: 235, weightGrams: 300, printTypes: ALL_FINISHES, sortOrder: 1, isActive: true },
-  { id: "g-tee", key: "tee", name: "Classic tee", qikinkStyle: "UC21", skuPrefix: "MRnHs", skuConfirmed: false, colours: STANDARD_COLOURS, sizes: STANDARD_SIZES, baseCostInr: 190, weightGrams: 250, printTypes: [...ALL_FINISHES, "sublimation"], sortOrder: 2, isActive: true },
+  { id: "g-tee", key: "tee", name: "Classic crew tee · 180 GSM", qikinkStyle: "UC21", skuPrefix: "MRnHs", skuConfirmed: false, colours: STANDARD_COLOURS, sizes: STANDARD_SIZES, baseCostInr: 190, weightGrams: 250, printTypes: [...ALL_FINISHES, "sublimation"], sortOrder: 0, isActive: true },
   { id: "g-hoodie", key: "hoodie", name: "Pullover hoodie", qikinkStyle: "UH83", skuPrefix: "UPuHd", skuConfirmed: false, colours: STANDARD_COLOURS, sizes: STANDARD_SIZES, baseCostInr: 480, weightGrams: 650, printTypes: ALL_FINISHES, sortOrder: 3, isActive: true },
   { id: "g-sweatshirt", key: "sweatshirt", name: "Sweatshirt", qikinkStyle: "UH26", skuPrefix: "USwFs", skuConfirmed: false, colours: STANDARD_COLOURS, sizes: STANDARD_SIZES, baseCostInr: 410, weightGrams: 550, printTypes: ALL_FINISHES, sortOrder: 4, isActive: true },
 ];
