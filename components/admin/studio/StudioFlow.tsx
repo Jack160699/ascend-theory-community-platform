@@ -58,9 +58,11 @@ async function api<T>(url: string, body?: unknown, method = "POST"): Promise<T> 
   return json;
 }
 
-function garmentKeyFor(analysis: DesignAnalysis | null): string {
+/** Detected hoodie/sweatshirt/oversized → that garment; any regular tee (or nothing detected) → the first garment in the list. */
+function garmentKeyFor(analysis: DesignAnalysis | null, garments: Garment[]): string | undefined {
   const t = analysis?.garment.type;
-  return t === "hoodie" || t === "sweatshirt" || t === "oversized_tee" ? t : "tee";
+  if ((t === "hoodie" || t === "sweatshirt" || t === "oversized_tee") && garments.some((g) => g.key === t)) return t;
+  return garments[0]?.key;
 }
 
 function printTypeFor(design: DetectedDesign | undefined): PrintMethod {
@@ -214,7 +216,7 @@ export function StudioFlow() {
 
   /* ── step 3→4: print defaults ── */
   const toPrint = () => {
-    const key = garmentKeyFor(source?.analysis ?? null);
+    const key = garmentKeyFor(source?.analysis ?? null, garments);
     const g = garments.find((x) => x.key === key) ?? garments[0];
     if (!g) return;
     setGarmentKey(g.key);
