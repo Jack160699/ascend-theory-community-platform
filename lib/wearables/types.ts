@@ -9,6 +9,10 @@ export type ProductVariant = {
   size: string;
   color: string;
   colorDisplay?: string;
+  /** Garment this variant is made on, when the product is sold in several fits (pod_garments.key). */
+  style?: string;
+  /** Customer-facing fit name, e.g. "Terry oversized". */
+  styleLabel?: string;
   stockQuantity: number;
   pricePaise: number;
   compareAtPricePaise?: number;
@@ -49,6 +53,8 @@ export type StudioProductInfo = {
   heightIn?: number;
   palette?: string[];
   hasPhoto?: boolean;
+  /** Fits this design is sold in (first = main), with fabric/cut line and starting price. */
+  fits?: { key: string; label: string; detail: string; name: string; price: number }[];
 };
 
 export type Product = {
@@ -69,7 +75,7 @@ export type Product = {
   seoTitle?: string;
   seoDescription?: string;
   primaryImageUrl?: string;
-  galleryJson: { src: string; alt?: string; caption?: string; colour?: string }[];
+  galleryJson: { src: string; alt?: string; caption?: string; colour?: string; fit?: string }[];
   sizeChartJson?: Record<string, unknown>;
   /** Set for products made in the HQ studio (garment, print type, placement). */
   studioJson?: StudioProductInfo | null;

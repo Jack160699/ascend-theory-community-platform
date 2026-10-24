@@ -5,7 +5,7 @@ import { normaliseAnalysis } from "../ai";
 import { DEFAULT_GARMENTS } from "../garments";
 import { estimateCostInr, parseQikinkSku, qikinkSku, suggestedPriceInr } from "../pricing";
 import { getPrintType, printChargeInr, defaultWidthIn, STUDIO_PRINT_TYPES } from "../print-types";
-import { validatePublish, type PublishInput } from "../publish";
+import { planFits, validatePublish, variantSku, type PublishInput } from "../publish";
 import { extractArtwork, renderPrintFile, renderMockup, isFabricBlend, autoPalette } from "../image";
 import { designCode, printTypeId, placementSku } from "../../fulfillment/qikink";
 
@@ -206,5 +206,86 @@ describe("auto thread palette", () => {
     const { inks, erase } = autoPalette(Float32Array.from(s), [237, 236, 216], true);
     assert.strictEqual(inks.length, 1);
     assert.ok(erase.length >= 1);
+  });
+});
+
+describe("garment shapes", () => {
+  it("draws the terry tee as oversized and the heavyweight tee as a regular tee", async () => {
+    const { shapeForGarment } = await import("../mockup-svg");
+    assert.strictEqual(shapeForGarment("terry_tee"), "oversized_tee");
+    assert.strictEqual(shapeForGarment("heavy_tee"), "tee");
+    assert.strictEqual(shapeForGarment("unknown"), "tee");
+    assert.strictEqual(DEFAULT_GARMENTS.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0]!.key, "terry_tee");
+  });
+});
+
+describe("fits — one design on several garments", () => {
+  const input: PublishInput = {
+    sourcePath: "uploads/a.png",
+    artworkPath: "uploads/a-art.png",
+    flat: true,
+    useSourcePhoto: false,
+    title: "Hold Your Horses",
+    description: "",
+    garmentKey: "terry_tee",
+    colours: ["White", "Navy Blue"],
+    sizes: ["S", "M", "L"],
+    printType: "embroidery",
+    placement: "front",
+    widthIn: 3.5,
+    price: 1299,
+    currency: "INR",
+    status: "active",
+    rightsConfirmed: true,
+    fits: [
+      { garmentKey: "terry_tee", price: 1299 },
+      { garmentKey: "tee", price: 999 },
+      { garmentKey: "heavy_tee", price: 1199 },
+    ],
+  };
+  const emb = getPrintType("embroidery")!;
+
+  it("plans every fit with its own price and only the colours it has", async () => {
+    const plans = planFits(input, DEFAULT_GARMENTS, emb);
+    assert.deepStrictEqual(plans.map((p) => p.garment.key), ["terry_tee", "tee", "heavy_tee"]);
+    assert.deepStrictEqual(plans.map((p) => p.price), [1299, 999, 1199]);
+    // Terry and heavyweight come in black/white only, so Navy is only on the classic tee.
+    assert.deepStrictEqual(plans[0]!.colours.map((c) => c.name), ["White"]);
+    assert.deepStrictEqual(plans[1]!.colours.map((c) => c.name), ["White", "Navy Blue"]);
+    assert.strictEqual(plans[0]!.label, "Terry oversized");
+    assert.strictEqual(plans[0]!.detail, "260 GSM · oversized, drop shoulder");
+    assert.strictEqual(plans[1]!.detail, "180 GSM · regular fit");
+  });
+
+  it("falls back to one fit for older callers and rejects fits that can't take the print", () => {
+    const single = planFits({ ...input, fits: undefined }, DEFAULT_GARMENTS, emb);
+    assert.deepStrictEqual(single.map((p) => [p.garment.key, p.price]), [["terry_tee", 1299]]);
+    const subl = getPrintType("sublimation")!;
+    assert.throws(() => planFits({ ...input, colours: ["White"] }, DEFAULT_GARMENTS, subl), /can't take Sublimation/);
+    assert.throws(() => planFits({ ...input, fits: [{ garmentKey: "tee", price: 0 }] }, DEFAULT_GARMENTS, emb), /Set a price/);
+  });
+
+  it("gives every fit its own variant SKU", () => {
+    const id = "abcd1234-0000";
+    assert.strictEqual(variantSku("hold-your-horses", id, "UT27", "Wh", "M"), "AT-HOLDYOURABCD-UT27-WH-M");
+    assert.strictEqual(variantSku("hold-your-horses", id, null, "Wh", "M"), "AT-HOLDYOURABCD-WH-M");
+  });
+
+  it("product page lists fits with the lowest price and finds the right image", async () => {
+    const { fitOptions, inFit, imageIndexFor } = await import("../../drop/fits");
+    const v = [
+      { style: "terry_tee", styleLabel: "Terry oversized", color: "white", size: "M", pricePaise: 129900 },
+      { style: "tee", styleLabel: "Classic crew", color: "white", size: "M", pricePaise: 99900 },
+      { style: "tee", styleLabel: "Classic crew", color: "navy blue", size: "M", pricePaise: 99900 },
+    ];
+    const opts = fitOptions(v, [{ key: "tee", label: "Classic crew", detail: "180 GSM · regular fit", price: 999 }]);
+    assert.deepStrictEqual(opts.map((o) => [o.key, o.pricePaise]), [["terry_tee", 129900], ["tee", 99900]]);
+    assert.strictEqual(opts[1]!.detail, "180 GSM · regular fit");
+    assert.strictEqual(inFit(v, "tee").length, 2);
+    assert.deepStrictEqual(fitOptions([v[0]!]), []); // single fit → no picker
+    const imgs = [{ colour: undefined }, { fit: "terry_tee", colour: "White" }, { fit: "tee", colour: "White" }, { fit: "tee", colour: "Navy Blue" }];
+    assert.strictEqual(imageIndexFor(imgs, "tee", "White"), 2);
+    assert.strictEqual(imageIndexFor(imgs, "terry_tee", "Navy Blue"), 1);
+    assert.strictEqual(imageIndexFor([{ colour: "Black" }], null, "Black"), 0);
   });
 });

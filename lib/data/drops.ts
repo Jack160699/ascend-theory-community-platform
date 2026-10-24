@@ -51,7 +51,9 @@ export type Drop = {
     garmentName: string;
     printLabel: string;
     placement: string;
-    gallery: { src: string; alt: string; colour?: string }[];
+    gallery: { src: string; alt: string; colour?: string; fit?: string }[];
+    /** Garments this design is sold on (fabric weight and cut), when there's more than one. */
+    fits?: { key: string; label: string; detail: string; price: number }[];
   };
 };
 
@@ -543,7 +545,8 @@ function publicProductToDropBase(p: PublicProduct): Drop {
           garmentName: p.studioJson.garmentName,
           printLabel: p.studioJson.printLabel,
           placement: p.studioJson.placement,
-          gallery: p.galleryJson.map((g, idx) => ({ src: g.src, alt: g.alt || `${p.title} — ${idx + 1}`, colour: g.colour })),
+          gallery: p.galleryJson.map((g, idx) => ({ src: g.src, alt: g.alt || `${p.title} — ${idx + 1}`, colour: g.colour, fit: g.fit })),
+          fits: p.studioJson.fits?.map((f) => ({ key: f.key, label: f.label, detail: f.detail, price: f.price })),
         }
       : undefined,
   };

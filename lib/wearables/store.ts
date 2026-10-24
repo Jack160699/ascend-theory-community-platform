@@ -116,7 +116,7 @@ export async function getPublicProducts(): Promise<PublicProduct[]> {
 
     const { data: variantsData } = await serviceClient
       .from("product_variants")
-      .select("id, product_id, sku, size, color, color_display, stock_quantity, price_paise, compare_at_price_paise, availability_status, is_active, weight_grams, sort_order, created_at, updated_at")
+      .select("id, product_id, sku, size, color, color_display, style, style_label, stock_quantity, price_paise, compare_at_price_paise, availability_status, is_active, weight_grams, sort_order, created_at, updated_at")
       .eq("is_active", true)
       .eq("availability_status", "available");
 
@@ -130,6 +130,8 @@ export async function getPublicProducts(): Promise<PublicProduct[]> {
         size: v.size,
         color: v.color,
         colorDisplay: v.color_display ?? undefined,
+        style: v.style ?? undefined,
+        styleLabel: v.style_label ?? undefined,
         stockQuantity: v.stock_quantity,
         pricePaise: Number(v.price_paise),
         compareAtPricePaise: Number(v.compare_at_price_paise || 0),
@@ -208,7 +210,7 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
 
     const { data: variantsData } = await serviceClient
       .from("product_variants")
-      .select("id, product_id, sku, size, color, color_display, stock_quantity, price_paise, compare_at_price_paise, availability_status, is_active, weight_grams, sort_order, created_at, updated_at")
+      .select("id, product_id, sku, size, color, color_display, style, style_label, stock_quantity, price_paise, compare_at_price_paise, availability_status, is_active, weight_grams, sort_order, created_at, updated_at")
       .eq("product_id", p.id)
       .eq("is_active", true)
       .eq("availability_status", "available");
@@ -220,6 +222,8 @@ export async function getPublicProductBySlug(slug: string): Promise<PublicProduc
       size: v.size,
       color: v.color,
       colorDisplay: v.color_display ?? undefined,
+        style: v.style ?? undefined,
+        styleLabel: v.style_label ?? undefined,
       stockQuantity: v.stock_quantity,
       pricePaise: Number(v.price_paise),
       compareAtPricePaise: Number(v.compare_at_price_paise || 0),
@@ -366,6 +370,8 @@ export async function getAuthoritativeVariantForCheckout(params: {
       size: vData.size,
       color: vData.color,
       colorDisplay: vData.color_display ?? undefined,
+      style: vData.style ?? undefined,
+      styleLabel: vData.style_label ?? undefined,
       stockQuantity: vData.stock_quantity,
       pricePaise: Number(vData.price_paise),
       compareAtPricePaise: Number(vData.compare_at_price_paise || 0),
@@ -453,6 +459,8 @@ export async function getAllProductsAdmin(): Promise<Product[]> {
         size: v.size,
         color: v.color,
         colorDisplay: v.color_display ?? undefined,
+        style: v.style ?? undefined,
+        styleLabel: v.style_label ?? undefined,
         stockQuantity: v.stock_quantity,
         pricePaise: Number(v.price_paise),
         compareAtPricePaise: Number(v.compare_at_price_paise || 0),
@@ -652,6 +660,8 @@ export async function saveProductAdmin(
         size: v.size || "S",
         color: v.color || "black",
         colorDisplay: v.colorDisplay,
+        style: v.style,
+        styleLabel: v.styleLabel,
         stockQuantity: v.stockQuantity ?? 0,
         pricePaise: v.pricePaise ?? 0,
         compareAtPricePaise: v.compareAtPricePaise ?? 0,
@@ -778,6 +788,8 @@ export async function saveProductAdmin(
       size: v.size!.trim(),
       color: v.color!.trim(),
       colorDisplay: v.colorDisplay,
+      style: v.style,
+      styleLabel: v.styleLabel,
       stockQuantity: v.stockQuantity ?? 0,
       pricePaise: v.pricePaise ?? 0,
       compareAtPricePaise: v.compareAtPricePaise ?? 0,

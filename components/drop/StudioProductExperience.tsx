@@ -4,6 +4,7 @@ import { AscendImage } from "@/components/AscendImage";
 import { BrandNav } from "@/components/brand/BrandNav";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import type { Drop } from "@/lib/data/drops";
+import { imageIndexFor } from "@/lib/drop/fits";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -24,20 +25,32 @@ export function StudioProductExperience({ product }: { product: Drop }) {
   const purchase = usePurchase(product);
   const [picked, setPicked] = useState(0);
 
+  // With several fits, show the worn photo plus the current fit's mockups only.
   const images = useMemo(() => {
-    const list = studio.gallery.length ? studio.gallery : [{ src: product.image, alt: product.imageAlt }];
-    return list as { src: string; alt: string; colour?: string }[];
-  }, [studio.gallery, product.image, product.imageAlt]);
+    const list = (studio.gallery.length ? studio.gallery : [{ src: product.image, alt: product.imageAlt }]) as {
+      src: string;
+      alt: string;
+      colour?: string;
+      fit?: string;
+    }[];
+    return purchase.fit ? list.filter((img) => !img.fit || img.fit === purchase.fit) : list;
+  }, [studio.gallery, product.image, product.imageAlt, purchase.fit]);
 
-  // Choosing a colour shows that colour's image; otherwise the picked thumbnail.
+  // Choosing a fit or colour shows that garment's image; otherwise the picked thumbnail.
   const colourLabel = purchase.colours.find((c) => c.key === purchase.colour)?.label;
-  const colourIndex = images.findIndex((img) => img.colour && img.colour.toLowerCase() === colourLabel?.toLowerCase());
-  const [lastColour, setLastColour] = useState(purchase.colour);
-  if (lastColour !== purchase.colour) {
-    setLastColour(purchase.colour);
-    if (colourIndex >= 0) setPicked(colourIndex);
+  const matchIndex = imageIndexFor(images, purchase.fit, colourLabel);
+  const selection = `${purchase.fit ?? ""}|${purchase.colour}`;
+  const [lastSelection, setLastSelection] = useState(selection);
+  if (lastSelection !== selection) {
+    setLastSelection(selection);
+    if (matchIndex >= 0) setPicked(matchIndex);
   }
-  const main = images[Math.min(picked, images.length - 1)]!;
+  const main = images[Math.min(picked, images.length - 1)] ?? images[0]!;
+
+  const currency = product.price.currency;
+  const money = (paise: number) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(paise / 100);
+  const priceDisplay = purchase.pricePaise != null ? money(purchase.pricePaise) : product.price.display;
+  const currentFit = purchase.fits.find((f) => f.key === purchase.fit);
 
   return (
     <main className="drop-canvas min-h-screen overflow-x-clip antialiased">
@@ -66,10 +79,38 @@ export function StudioProductExperience({ product }: { product: Drop }) {
 
         <section id="buy" aria-label="Buy" className="lg:sticky lg:top-24 lg:self-start">
           <p className="brand-eyebrow">
-            {studio.garmentName} · {studio.printLabel}
+            {currentFit ? currentFit.label : studio.garmentName} · {studio.printLabel}
           </p>
           <h1 className="brand-headline mt-3">{product.name}</h1>
-          <p className="mt-4 text-2xl font-medium tabular-nums text-white">{product.price.display}</p>
+          <p className="mt-4 text-2xl font-medium tabular-nums text-white">{priceDisplay}</p>
+
+          {purchase.fits.length > 1 && (
+            <fieldset className="mt-8">
+              <legend className="text-[11px] uppercase tracking-[0.2em] text-white/50">Fit &amp; fabric</legend>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Fit and fabric">
+                {purchase.fits.map((f) => {
+                  const on = f.key === purchase.fit;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => purchase.pickFit(f.key)}
+                      className={cn(
+                        "rounded-sm border px-3 py-3 text-left transition",
+                        on ? "border-white bg-white/[0.06]" : "border-white/15 hover:border-white/40",
+                      )}
+                    >
+                      <span className={cn("block text-sm", on ? "text-white" : "text-white/80")}>{f.label}</span>
+                      {f.detail && <span className="mt-1 block text-[11px] leading-snug text-white/50">{f.detail}</span>}
+                      <span className="mt-2 block text-xs tabular-nums text-white/70">{money(f.pricePaise)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
 
           {purchase.colours.length > 1 && (
             <div className="mt-8">
@@ -127,7 +168,7 @@ export function StudioProductExperience({ product }: { product: Drop }) {
             ) : (
               <>
                 <button type="button" className="drop-cta flex-1" onClick={purchase.buyNow}>
-                  Buy now · {product.price.display}
+                  Buy now · {priceDisplay}
                 </button>
                 <button type="button" className="drop-cta drop-cta--ghost flex-1" onClick={purchase.addToCart}>
                   {purchase.added ? "Added to cart" : "Add to cart"}
@@ -142,7 +183,7 @@ export function StudioProductExperience({ product }: { product: Drop }) {
             <li>
               {studio.printLabel} {PLACEMENT_WORDS[studio.placement] ?? ""}
             </li>
-            <li>{studio.garmentName}, unisex fit</li>
+            <li>{currentFit ? `${currentFit.label} — ${currentFit.detail}` : `${studio.garmentName}, unisex fit`}</li>
             <li>Made to order — printed for you when you order</li>
             <li>
               <Link href={BRAND_ROUTES.drops} className="underline-offset-4 hover:text-white hover:underline">

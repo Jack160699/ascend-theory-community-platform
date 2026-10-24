@@ -4,6 +4,7 @@
  */
 
 import type { PrintMethod } from "@/lib/wearables/design-types";
+import { shapeForGarment } from "./mockup-svg";
 import { getPrintType, printChargeInr } from "./print-types";
 
 /** Rate used to show rupee costs next to dollar prices (matches QIKINK_FX_TO_INR's default). */
@@ -73,4 +74,18 @@ export function estimateCostInr(g: Garment, colourName: string, placements: Plac
 export function suggestedPriceInr(costInr: number, marginShare: number): number {
   const raw = costInr / Math.max(0.05, 1 - marginShare);
   return Math.max(99, Math.ceil((raw + 1) / 100) * 100 - 1);
+}
+
+/** Customer-facing name of a garment as a "fit": "Terry oversized tee · 260 GSM" → "Terry oversized". */
+export function fitLabel(g: Pick<Garment, "name">): string {
+  const head = g.name.split("·")[0]!.trim();
+  return head.replace(/\s+(tee|t-shirt)$/i, "").trim() || head;
+}
+
+/** One line on fabric weight and cut: "260 GSM · oversized, drop shoulder". */
+export function fitDetail(g: Pick<Garment, "name" | "key">): string {
+  const weight = g.name.match(/(\d{3})\s*GSM/i)?.[1];
+  const shape = shapeForGarment(g.key);
+  const cut = shape === "oversized_tee" ? "oversized, drop shoulder" : shape === "tee" ? "regular fit" : "relaxed fit";
+  return [weight ? `${weight} GSM` : null, cut].filter(Boolean).join(" · ");
 }

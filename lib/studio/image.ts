@@ -178,7 +178,7 @@ export function autoPalette(
   fabric: [number, number, number],
   checkBlends: boolean,
 ): { inks: [number, number, number][]; erase: [number, number, number][] } {
-  const { centroids, counts } = kmeans(samples, 10, 18);
+  const { centroids, counts } = kmeans(samples, 14, 18);
   let clusters = centroids.map((c, i) => ({ c, n: counts[i] ?? 0 })).filter((x) => x.n > 0);
   for (;;) {
     let bi = -1;
@@ -212,15 +212,17 @@ export function autoPalette(
       const l = toLab(x.c);
       // Fabric in shadow (folds, stitch texture): same hue as the fabric, a bit darker/lighter.
       if (Math.hypot(l[1] - fl[1], l[2] - fl[2]) < 6 && Math.abs(l[0] - fl[0]) < 45) return true;
-      // Anti-aliased edge: sits right on the line between the fabric and another ink.
+      // Anti-aliased edge: sits on the line between the fabric and another ink. Hue counts extra,
+      // so a dull olive green isn't mistaken for dark brown fading into cream. Small clusters get a
+      // looser test (they're usually edges); big ones must sit right on the line.
+      const limit = x.n / total < 0.12 ? 7 : 4;
       for (const o of others) {
         for (let t = 0.1; t <= 0.9; t += 0.05) {
           const m = toLab([o[0] * t + fabric[0] * (1 - t), o[1] * t + fabric[1] * (1 - t), o[2] * t + fabric[2] * (1 - t)]);
-          if (Math.hypot(l[0] - m[0], l[1] - m[1], l[2] - m[2]) < 6) return true;
+          if (Math.hypot((l[0] - m[0]) * 0.5, (l[1] - m[1]) * 1.5, (l[2] - m[2]) * 1.5) < limit) return true;
         }
       }
-      // Small, loosely blended clusters are edges too; big ones are real threads.
-      return x.n / total < 0.12 && isFabricBlend(x.c, others, fabric);
+      return false;
     };
     const flags = clusters.map((x, i) => isErase(x, clusters.filter((_, j) => j !== i).map((y) => y.c)));
     if (flags.some((f) => !f)) {

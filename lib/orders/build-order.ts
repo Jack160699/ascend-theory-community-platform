@@ -69,7 +69,8 @@ export async function buildOrderFromInputAsync(input: CreateOrderInput): Promise
       sku: variant.sku,
       size: variant.size,
       color: variant.color,
-      name: product.title,
+      // Products sold in several fits name the fit, so the order and packing slip say which garment.
+      name: variant.styleLabel ? `${product.title} · ${variant.styleLabel}` : product.title,
       dropName: product.subtitle || "Ascend Release",
       price: authoritativePrice,
       priceDisplay: new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(authoritativePrice),
