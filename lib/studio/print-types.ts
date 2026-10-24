@@ -147,12 +147,22 @@ export function getPrintType(key: string): StudioPrintType | undefined {
   return STUDIO_PRINT_TYPES.find((t) => t.key === key);
 }
 
-/** A sensible starting print width for a placement, within Qikink's limit. */
-export function defaultWidthIn(type: StudioPrintType, placement: PlacementLocation): number {
+/** Largest comfortable print on a regular tee front/back: 11 in wide, 12 in tall. */
+export const COMFORT_PRINT_IN = { w: 11, h: 12 } as const;
+
+/**
+ * Starting print width for a placement, from the design's shape (height ÷ width), so the
+ * design fills the area properly without breaking Qikink's limits: wide designs get 11 in,
+ * tall designs are capped at 12 in tall, embroidery and chest/shoulder logos at 3.5 in.
+ */
+export function defaultWidthIn(type: StudioPrintType, placement: PlacementLocation, aspect = 1): number {
   const max = type.maxSize[placement];
   if (!max) return 3;
-  if (placement === "front" || placement === "back") return Math.min(max.w, type.key === "embroidery" ? 3.5 : 11);
-  return Math.min(max.w, 3.5);
+  const a = aspect > 0 ? aspect : 1;
+  const big = placement === "front" || placement === "back";
+  const capW = big && type.key !== "embroidery" ? Math.min(max.w, COMFORT_PRINT_IN.w) : Math.min(max.w, 3.5);
+  const capH = big && type.key !== "embroidery" ? Math.min(max.h, COMFORT_PRINT_IN.h) : Math.min(max.h, 3.5);
+  return Math.round(Math.max(1, Math.min(capW, capH / a)) * 10) / 10;
 }
 
 /** Qikink print charge for one placement (₹, before GST). */

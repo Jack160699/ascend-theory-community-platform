@@ -9,6 +9,7 @@ import { defaultWidthIn, PLACEMENT_LABEL, STUDIO_PRINT_TYPES, type StudioPrintTy
 import type { GarmentShape } from "@/lib/studio/mockup-svg";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MockupPreview } from "./MockupPreview";
+import { MIN_STITCH_MM, useStitchCheck } from "./useStitchCheck";
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 type Step = "upload" | "design" | "artwork" | "print" | "price" | "done";
@@ -57,9 +58,11 @@ async function api<T>(url: string, body?: unknown, method = "POST"): Promise<T> 
   return json;
 }
 
-function garmentKeyFor(analysis: DesignAnalysis | null): string {
+/** Detected hoodie/sweatshirt/oversized → that garment; any regular tee (or nothing detected) → the first garment in the list. */
+function garmentKeyFor(analysis: DesignAnalysis | null, garments: Garment[]): string | undefined {
   const t = analysis?.garment.type;
-  return t === "tee" || t === "hoodie" || t === "sweatshirt" || t === "oversized_tee" ? t : "oversized_tee";
+  if ((t === "hoodie" || t === "sweatshirt" || t === "oversized_tee") && garments.some((g) => g.key === t)) return t;
+  return garments[0]?.key;
 }
 
 function printTypeFor(design: DetectedDesign | undefined): PrintMethod {
@@ -108,7 +111,7 @@ export function StudioFlow() {
   const [artwork, setArtwork] = useState<Artwork | null>(null);
 
   const [garments, setGarments] = useState<Garment[]>([]);
-  const [garmentKey, setGarmentKey] = useState("oversized_tee");
+  const [garmentKey, setGarmentKey] = useState("tee");
   const [printKey, setPrintKey] = useState<PrintMethod>("dtg");
   const [placement, setPlacement] = useState<PlacementLocation>("front");
   const [widthIn, setWidthIn] = useState(11);
@@ -136,6 +139,9 @@ export function StudioFlow() {
   const aspect = artwork ? artwork.height / artwork.width : 1;
   const printW = Math.min(widthIn, area.w, area.h / aspect);
   const printH = printW * aspect;
+  const isEmbroidery = printType.key === "embroidery";
+  const fineShare = useStitchCheck(artwork?.previewUrl, printW, step === "print" && isEmbroidery);
+  const tooManyThreads = Boolean(artwork && isEmbroidery && (!artwork.flat || artwork.palette.length > (printType.maxColours ?? 6)));
   const designs = source?.analysis?.designs ?? [];
   const selectedDesign = designs[designIndex];
 
@@ -176,7 +182,7 @@ export function StudioFlow() {
 
   /* ── step 2→3: extract ── */
   const extract = useCallback(
-    async (opts?: { colours?: "auto" | "full" | number; tolerance?: number }) => {
+    async (opts?: { colours?: "auto" | "full" | number; tolerance?: number; stay?: boolean }) => {
       if (!source || !box) return;
       setError(null);
       setBusy("Cleaning up the artwork…");
@@ -188,7 +194,7 @@ export function StudioFlow() {
           tolerance: opts?.tolerance ?? tolerance,
         });
         setArtwork(result);
-        setStep("artwork");
+        if (!opts?.stay) setStep("artwork");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Couldn't extract the design");
       } finally {
@@ -210,7 +216,7 @@ export function StudioFlow() {
 
   /* ── step 3→4: print defaults ── */
   const toPrint = () => {
-    const key = garmentKeyFor(source?.analysis ?? null);
+    const key = garmentKeyFor(source?.analysis ?? null, garments);
     const g = garments.find((x) => x.key === key) ?? garments[0];
     if (!g) return;
     setGarmentKey(g.key);
@@ -221,7 +227,7 @@ export function StudioFlow() {
     const detected = selectedDesign?.placement as PlacementLocation | undefined;
     const pl = detected && type.maxSize[detected] ? detected : ((Object.keys(type.maxSize)[0] ?? "front") as PlacementLocation);
     setPlacement(pl);
-    setWidthIn(defaultWidthIn(type, pl));
+    setWidthIn(defaultWidthIn(type, pl, artwork ? artwork.height / artwork.width : 1));
     const detectedColour = source?.analysis?.garment.colourName.toLowerCase();
     const match = g.colours.find((c) => c.name.toLowerCase() === detectedColour);
     setGarmentColours([match?.name ?? g.colours[0]!.name]);
@@ -246,7 +252,7 @@ export function StudioFlow() {
     setPrintKey(key);
     const pl = type.maxSize[placement] ? placement : ((Object.keys(type.maxSize)[0] ?? "front") as PlacementLocation);
     setPlacement(pl);
-    setWidthIn(defaultWidthIn(type, pl));
+    setWidthIn(defaultWidthIn(type, pl, aspect));
     if (type.garmentColours) setGarmentColours((prev) => prev.filter((c) => type.garmentColours!.includes(c.toLowerCase())));
   };
 
@@ -497,7 +503,7 @@ export function StudioFlow() {
             <Field label="Placement">
               <div className="flex flex-wrap gap-1.5">
                 {placements.map((p) => (
-                  <button key={p} type="button" onClick={() => { setPlacement(p); setWidthIn(defaultWidthIn(printType, p)); }} className={`rounded-md border px-3 py-1.5 text-xs ${p === placement ? "border-white/50 bg-white/10 text-white" : "border-white/10 text-zinc-400 hover:text-white"}`}>
+                  <button key={p} type="button" onClick={() => { setPlacement(p); setWidthIn(defaultWidthIn(printType, p, aspect)); }} className={`rounded-md border px-3 py-1.5 text-xs ${p === placement ? "border-white/50 bg-white/10 text-white" : "border-white/10 text-zinc-400 hover:text-white"}`}>
                     {PLACEMENT_LABEL[p]}
                   </button>
                 ))}
@@ -537,6 +543,41 @@ export function StudioFlow() {
                 })}
               </div>
             </Field>
+            {isEmbroidery && (
+              <div className="space-y-2 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-xs">
+                <div className="text-zinc-400">Embroidery check</div>
+                {tooManyThreads ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-amber-300">
+                    <span>
+                      Embroidery uses up to {printType.maxColours ?? 6} thread colours — this artwork {artwork?.flat ? `has ${artwork.palette.length}` : "is full colour"}.
+                    </span>
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => {
+                        const n = Math.min(printType.maxColours ?? 6, Math.max(2, artwork?.palette.length ?? 6));
+                        setColours(n);
+                        void extract({ colours: n, stay: true });
+                      }}
+                      className="rounded border border-amber-400/40 px-2 py-1 text-amber-200 hover:bg-amber-400/10"
+                    >
+                      Flatten to {Math.min(printType.maxColours ?? 6, Math.max(2, artwork?.palette.length ?? 6))} threads
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-emerald-300">{artwork?.palette.length} thread colour{artwork?.palette.length === 1 ? "" : "s"} — within Qikink&apos;s limit.</div>
+                )}
+                {fineShare === null ? (
+                  <div className="text-zinc-500">Checking stitch detail…</div>
+                ) : fineShare > 0.08 ? (
+                  <div className="text-amber-300">
+                    About {Math.round(fineShare * 100)}% of the design is finer than Qikink&apos;s {MIN_STITCH_MM} mm minimum at {printW.toFixed(1)} in — those parts won&apos;t stitch cleanly. Simplify it, or use DTG print for a detailed design.
+                  </div>
+                ) : (
+                  <div className="text-emerald-300">Lines are thick enough to stitch at this size ({MIN_STITCH_MM} mm minimum).</div>
+                )}
+              </div>
+            )}
             <p className="rounded-md border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-400">
               Qikink file: PNG · {Math.round(printW * 300)} × {Math.round(printH * 300)} px · 300 DPI · transparent · print type {printType.qikinkId} · placement {placement === "left_chest" ? "lp" : placement === "right_chest" ? "rp" : placement === "back" ? "bk" : placement === "left_sleeve" ? "ls" : placement === "right_sleeve" ? "rs" : "fr"}
               {printType.turnaroundNote ? ` · ${printType.turnaroundNote}` : ""}
@@ -550,7 +591,7 @@ export function StudioFlow() {
               <button type="button" onClick={() => setStep("artwork")} className="rounded-md border border-white/15 px-4 py-2 text-sm text-zinc-300 hover:border-white/30">
                 ← Back
               </button>
-              <button type="button" disabled={garmentColours.length === 0 || sizes.length === 0} onClick={goPrice} className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-40">
+              <button type="button" disabled={garmentColours.length === 0 || sizes.length === 0 || tooManyThreads} onClick={goPrice} className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-40">
                 Set the price →
               </button>
             </div>

@@ -142,6 +142,101 @@ export function isFabricBlend(c: [number, number, number], inks: [number, number
   return false;
 }
 
+/** sRGB → CIELAB (D65). */
+export function toLab(c: [number, number, number]): [number, number, number] {
+  const lin = (v: number) => {
+    const x = v / 255;
+    return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  const r = lin(c[0]);
+  const g = lin(c[1]);
+  const b = lin(c[2]);
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047);
+  const y = f(r * 0.2126 + g * 0.7152 + b * 0.0722);
+  const z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+
+/**
+ * How different two thread colours look. Lightness counts half: in a photo the same thread
+ * goes lighter and darker with stitch texture and folds, but its hue stays put — so sage
+ * green and tan stay apart even when both are dull, while light and shadowed tan merge.
+ */
+export function threadDistance(a: [number, number, number], b: [number, number, number]): number {
+  return Math.sqrt(((a[0] - b[0]) / 2) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2);
+}
+const THREAD_MERGE = 12;
+
+/**
+ * Automatic palette for photos of real prints/embroidery: start from 10 candidate colours,
+ * merge near-identical shades (thread texture, lighting), then drop specks and colours that
+ * are only an ink fading into the fabric. Distinct hues (green vs tan) always survive.
+ */
+export function autoPalette(
+  samples: Float32Array,
+  fabric: [number, number, number],
+  checkBlends: boolean,
+): { inks: [number, number, number][]; erase: [number, number, number][] } {
+  const { centroids, counts } = kmeans(samples, 10, 18);
+  let clusters = centroids.map((c, i) => ({ c, n: counts[i] ?? 0 })).filter((x) => x.n > 0);
+  for (;;) {
+    let bi = -1;
+    let bj = -1;
+    let bd = Infinity;
+    const labs = clusters.map((x) => toLab(x.c));
+    for (let i = 0; i < clusters.length; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        const d = threadDistance(labs[i]!, labs[j]!);
+        if (d < bd) {
+          bd = d;
+          bi = i;
+          bj = j;
+        }
+      }
+    }
+    if (bi < 0 || bd >= THREAD_MERGE) break;
+    const A = clusters[bi]!;
+    const B = clusters[bj]!;
+    const total = A.n + B.n;
+    A.c = [(A.c[0] * A.n + B.c[0] * B.n) / total, (A.c[1] * A.n + B.c[1] * B.n) / total, (A.c[2] * A.n + B.c[2] * B.n) / total];
+    A.n = total;
+    clusters.splice(bj, 1);
+  }
+  const total = clusters.reduce((s, x) => s + x.n, 0) || 1;
+  clusters = clusters.filter((x) => x.n / total >= 0.01);
+  const erase: [number, number, number][] = [];
+  if (checkBlends && clusters.length > 1) {
+    const fl = toLab(fabric);
+    const isErase = (x: { c: [number, number, number]; n: number }, others: [number, number, number][]) => {
+      const l = toLab(x.c);
+      // Fabric in shadow (folds, stitch texture): same hue as the fabric, a bit darker/lighter.
+      if (Math.hypot(l[1] - fl[1], l[2] - fl[2]) < 6 && Math.abs(l[0] - fl[0]) < 45) return true;
+      // Anti-aliased edge: sits right on the line between the fabric and another ink.
+      for (const o of others) {
+        for (let t = 0.1; t <= 0.9; t += 0.05) {
+          const m = toLab([o[0] * t + fabric[0] * (1 - t), o[1] * t + fabric[1] * (1 - t), o[2] * t + fabric[2] * (1 - t)]);
+          if (Math.hypot(l[0] - m[0], l[1] - m[1], l[2] - m[2]) < 6) return true;
+        }
+      }
+      // Small, loosely blended clusters are edges too; big ones are real threads.
+      return x.n / total < 0.12 && isFabricBlend(x.c, others, fabric);
+    };
+    const flags = clusters.map((x, i) => isErase(x, clusters.filter((_, j) => j !== i).map((y) => y.c)));
+    if (flags.some((f) => !f)) {
+      clusters.forEach((x, i) => flags[i] && erase.push(x.c));
+      clusters = clusters.filter((_, i) => !flags[i]);
+    }
+  }
+  return {
+    inks: clusters
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 8)
+      .map((x) => x.c),
+    erase,
+  };
+}
+
 /** Picks the smallest colour count that explains the artwork well (1–8). */
 export function estimateColourCount(samples: Float32Array): number {
   if (samples.length < 30) return 1;
@@ -303,19 +398,16 @@ export async function extractArtwork(source: Buffer, box: NormBox, opts: Extract
   if (sampleList.length < 30) throw new Error("No design found in that area — draw the box tighter or lower the background setting");
   const samples = Float32Array.from(sampleList);
 
-  let k = opts.colours === "full" ? 0 : opts.colours === "auto" ? estimateColourCount(samples) : Math.max(1, Math.min(8, opts.colours));
-  if (opts.colours === "auto" && k > 1) {
-    // Blurred edges create tiny in-between colours; real inks cover a meaningful share.
-    const { counts, centroids } = kmeans(samples, k);
-    const total = counts.reduce((a, b) => a + b, 0);
-    const real = centroids.filter((c, i) => counts[i]! / total >= 0.035);
-    k = Math.max(1, real.filter((c, i) => !isFabricBlend(c, real.filter((_, j) => j !== i), bg)).length);
-  }
+  const colours = opts.colours;
+  const auto = colours === "auto" ? autoPalette(samples, bg, removeBackground && !sourceHadTransparency) : null;
+  const centroids: [number, number, number][] =
+    colours === "full" ? [] : colours === "auto" ? auto!.inks : kmeans(samples, Math.max(1, Math.min(8, colours))).centroids;
+  const erase = auto?.erase ?? [];
+  const k = centroids.length;
   const out = Buffer.alloc(n * 4);
   let palette: string[] = [];
 
   if (k > 0) {
-    const { centroids } = kmeans(samples, k);
     palette = centroids.map((c) => hex(c[0], c[1], c[2]));
     let labels: Uint8Array = new Uint8Array(n);
     const useBlend = removeBackground && !sourceHadTransparency;
@@ -335,6 +427,11 @@ export async function extractArtwork(source: Buffer, box: NormBox, opts: Extract
         }
       }
       let label = best + 1;
+      // Closer to fabric-in-shadow or an edge blend than to any thread: leave it off.
+      if (erase.some((e) => (r - e[0]) ** 2 + (g - e[1]) ** 2 + (b - e[2]) ** 2 < bestD)) {
+        labels[i] = 0;
+        continue;
+      }
       if (useBlend) {
         // Edge pixels are an ink faded into the fabric: give them to that ink (or drop them).
         for (let c = 0; c < centroids.length; c++) {
@@ -355,13 +452,13 @@ export async function extractArtwork(source: Buffer, box: NormBox, opts: Extract
       }
       labels[i] = label;
     }
-    // An ink that ends up on under 2% of the design is noise: fold it into the nearest real ink.
+    // An ink that ends up on under 0.6% of the design is noise: fold it into the nearest real ink.
     if (opts.colours === "auto" && centroids.length > 1) {
       const counts = new Array(centroids.length + 1).fill(0);
       for (let i = 0; i < n; i++) counts[labels[i]!]++;
       const inked = n - counts[0];
       const remap = centroids.map((_, c) => c + 1);
-      const keepIdx = centroids.map((_, c) => c).filter((c) => counts[c + 1] / Math.max(1, inked) >= 0.02);
+      const keepIdx = centroids.map((_, c) => c).filter((c) => counts[c + 1] / Math.max(1, inked) >= 0.006);
       if (keepIdx.length > 0 && keepIdx.length < centroids.length) {
         centroids.forEach((cc, c) => {
           if (keepIdx.includes(c)) return;
@@ -557,7 +654,7 @@ export async function renderMockup(
   const artImg = await sharp(art).resize({ width: w, height: h, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
   const { cx, top } = mockupAnchor(opts.shape, opts.placement);
   return sharp(garment)
-    .composite([{ input: artImg, left: Math.round(cx - w / 2), top }])
+    .composite([{ input: artImg, left: Math.round(cx - w / 2), top: Math.round(top) }])
     .webp({ quality: 88 })
     .toBuffer();
 }

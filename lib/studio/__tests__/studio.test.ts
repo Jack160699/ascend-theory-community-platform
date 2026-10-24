@@ -6,7 +6,7 @@ import { DEFAULT_GARMENTS } from "../garments";
 import { estimateCostInr, parseQikinkSku, qikinkSku, suggestedPriceInr } from "../pricing";
 import { getPrintType, printChargeInr, defaultWidthIn, STUDIO_PRINT_TYPES } from "../print-types";
 import { validatePublish, type PublishInput } from "../publish";
-import { extractArtwork, renderPrintFile, renderMockup, isFabricBlend } from "../image";
+import { extractArtwork, renderPrintFile, renderMockup, isFabricBlend, autoPalette } from "../image";
 import { designCode, printTypeId, placementSku } from "../../fulfillment/qikink";
 
 const hoodie = DEFAULT_GARMENTS.find((g) => g.key === "hoodie")!;
@@ -162,5 +162,49 @@ describe("Studio — image pipeline", () => {
   it("recognises anti-aliased edge colours as fabric blends", () => {
     assert.strictEqual(isFabricBlend([110, 92, 50], [[201, 162, 63]], [27, 27, 29]), true);
     assert.strictEqual(isFabricBlend([184, 32, 42], [[201, 162, 63]], [27, 27, 29]), false);
+  });
+});
+
+describe("Studio — automatic placement", () => {
+  it("sizes front designs from their shape within comfortable and Qikink limits", async () => {
+    const { defaultWidthIn: w, getPrintType: t } = await import("../print-types");
+    assert.strictEqual(w(t("dtg")!, "front", 0.5), 11); // wide design → 11 in wide
+    assert.strictEqual(w(t("dtg")!, "front", 1.6), 7.5); // tall design → 12 in tall
+    assert.strictEqual(w(t("embroidery")!, "front", 1.1), 3.2); // embroidery fits 3.5 × 3.5 in
+    assert.strictEqual(w(t("embroidery")!, "front", 0.4), 3.5);
+  });
+
+  it("places front prints 3 in below the collar, centred; chest logos 4 in off-centre", async () => {
+    const { mockupAnchor, MOCKUP_PPI } = await import("../mockup-svg");
+    const front = mockupAnchor("tee", "front");
+    assert.strictEqual(front.cx, 500);
+    assert.strictEqual(front.top, 190 + 3 * MOCKUP_PPI.tee);
+    const chest = mockupAnchor("tee", "left_chest");
+    assert.strictEqual(chest.cx, 500 + 4 * MOCKUP_PPI.tee);
+  });
+});
+
+describe("auto thread palette", () => {
+  const jitter = (c: number[], n: number, out: number[]) => {
+    for (let i = 0; i < n; i++) {
+      const k = ((i * 37) % 21) - 10; // ±10 lightness wobble, like stitch texture
+      out.push(c[0]! + k, c[1]! + k, c[2]! + k);
+    }
+  };
+  it("keeps dull sage and tan apart but merges light/shadow of one thread", () => {
+    const s: number[] = [];
+    jitter([163, 156, 128], 4000, s); // sage
+    jitter([190, 140, 102], 3000, s); // tan
+    jitter([210, 160, 120], 1500, s); // tan, lighter
+    const { inks } = autoPalette(Float32Array.from(s), [69, 58, 58], true);
+    assert.strictEqual(inks.length, 2);
+  });
+  it("leaves out fabric in shadow and anti-aliased edges", () => {
+    const s: number[] = [];
+    jitter([8, 8, 7], 6000, s); // black ink
+    jitter([120, 119, 113], 1800, s); // grey edge pixels on cream
+    const { inks, erase } = autoPalette(Float32Array.from(s), [237, 236, 216], true);
+    assert.strictEqual(inks.length, 1);
+    assert.ok(erase.length >= 1);
   });
 });
