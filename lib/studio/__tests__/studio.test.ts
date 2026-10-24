@@ -6,7 +6,7 @@ import { DEFAULT_GARMENTS } from "../garments";
 import { estimateCostInr, parseQikinkSku, qikinkSku, suggestedPriceInr } from "../pricing";
 import { getPrintType, printChargeInr, defaultWidthIn, STUDIO_PRINT_TYPES } from "../print-types";
 import { validatePublish, type PublishInput } from "../publish";
-import { extractArtwork, renderPrintFile, renderMockup, isFabricBlend } from "../image";
+import { extractArtwork, renderPrintFile, renderMockup, isFabricBlend, autoPalette } from "../image";
 import { designCode, printTypeId, placementSku } from "../../fulfillment/qikink";
 
 const hoodie = DEFAULT_GARMENTS.find((g) => g.key === "hoodie")!;
@@ -181,5 +181,30 @@ describe("Studio — automatic placement", () => {
     assert.strictEqual(front.top, 190 + 3 * MOCKUP_PPI.tee);
     const chest = mockupAnchor("tee", "left_chest");
     assert.strictEqual(chest.cx, 500 + 4 * MOCKUP_PPI.tee);
+  });
+});
+
+describe("auto thread palette", () => {
+  const jitter = (c: number[], n: number, out: number[]) => {
+    for (let i = 0; i < n; i++) {
+      const k = ((i * 37) % 21) - 10; // ±10 lightness wobble, like stitch texture
+      out.push(c[0]! + k, c[1]! + k, c[2]! + k);
+    }
+  };
+  it("keeps dull sage and tan apart but merges light/shadow of one thread", () => {
+    const s: number[] = [];
+    jitter([163, 156, 128], 4000, s); // sage
+    jitter([190, 140, 102], 3000, s); // tan
+    jitter([210, 160, 120], 1500, s); // tan, lighter
+    const { inks } = autoPalette(Float32Array.from(s), [69, 58, 58], true);
+    assert.strictEqual(inks.length, 2);
+  });
+  it("leaves out fabric in shadow and anti-aliased edges", () => {
+    const s: number[] = [];
+    jitter([8, 8, 7], 6000, s); // black ink
+    jitter([120, 119, 113], 1800, s); // grey edge pixels on cream
+    const { inks, erase } = autoPalette(Float32Array.from(s), [237, 236, 216], true);
+    assert.strictEqual(inks.length, 1);
+    assert.ok(erase.length >= 1);
   });
 });
