@@ -20,6 +20,19 @@ export type GarmentShape = "tee" | "oversized_tee" | "hoodie" | "sweatshirt";
 
 export const MOCKUP_CANVAS = { w: 1000, h: 1200 };
 /** Pixels per inch on the mockup illustration (chest ≈ 21–24 in across). */
+/** Garment catalogue key → mockup silhouette. Unknown keys draw as a regular tee. */
+const GARMENT_SHAPES: Record<string, GarmentShape> = {
+  tee: "tee",
+  heavy_tee: "tee",
+  oversized_tee: "oversized_tee",
+  terry_tee: "oversized_tee",
+  hoodie: "hoodie",
+  sweatshirt: "sweatshirt",
+};
+export function shapeForGarment(key: string | undefined): GarmentShape {
+  return (key && GARMENT_SHAPES[key]) || "tee";
+}
+
 export const MOCKUP_PPI: Record<GarmentShape, number> = { tee: 25, oversized_tee: 22, hoodie: 23, sweatshirt: 23 };
 
 function luminance(hexColour: string): number {

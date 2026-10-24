@@ -7,7 +7,8 @@
 import { randomUUID } from "node:crypto";
 import type { PlacementLocation, PrintMethod } from "@/lib/wearables/design-types";
 import { estimateCostInr, getGarment, qikinkSku, type Garment } from "./garments";
-import { renderMockup, renderPrintFile, toStoreImage, type GarmentShape } from "./image";
+import { renderMockup, renderPrintFile, toStoreImage } from "./image";
+import { shapeForGarment } from "./mockup-svg";
 import { getPrintType, PLACEMENT_LABEL, type StudioPrintType } from "./print-types";
 import {
   ARTWORK_BUCKET,
@@ -52,7 +53,6 @@ export type PublishResult = {
 
 export type ValidatedPublish = { input: PublishInput; garment: Garment; printType: StudioPrintType; maxW: number; maxH: number };
 
-const SHAPES: Record<string, GarmentShape> = { tee: "tee", oversized_tee: "oversized_tee", hoodie: "hoodie", sweatshirt: "sweatshirt" };
 
 export function validatePublish(input: PublishInput, garment: Garment | undefined): ValidatedPublish {
   const errors: string[] = [];
@@ -131,7 +131,7 @@ export async function publishDesign(raw: PublishInput, adminId: string | null): 
   const mockups: { colour: string; url: string }[] = [];
   for (const colour of chosen) {
     const img = await renderMockup(printFile.png, {
-      shape: SHAPES[g.key] ?? "tee",
+      shape: shapeForGarment(g.key),
       colourHex: colour.hex,
       placement: input.placement,
       widthIn: printFile.widthIn,

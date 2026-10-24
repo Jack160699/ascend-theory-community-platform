@@ -208,3 +208,13 @@ describe("auto thread palette", () => {
     assert.ok(erase.length >= 1);
   });
 });
+
+describe("garment shapes", () => {
+  it("draws the terry tee as oversized and the heavyweight tee as a regular tee", async () => {
+    const { shapeForGarment } = await import("../mockup-svg");
+    assert.strictEqual(shapeForGarment("terry_tee"), "oversized_tee");
+    assert.strictEqual(shapeForGarment("heavy_tee"), "tee");
+    assert.strictEqual(shapeForGarment("unknown"), "tee");
+    assert.strictEqual(DEFAULT_GARMENTS.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0]!.key, "terry_tee");
+  });
+});

@@ -6,7 +6,7 @@ import type { PlacementLocation, PrintMethod } from "@/lib/wearables/design-type
 import type { DesignAnalysis, DetectedDesign } from "@/lib/studio/ai";
 import { estimateCostInr, STUDIO_FX_TO_INR, suggestedPriceInr, type Garment } from "@/lib/studio/pricing";
 import { defaultWidthIn, PLACEMENT_LABEL, STUDIO_PRINT_TYPES, type StudioPrintType } from "@/lib/studio/print-types";
-import type { GarmentShape } from "@/lib/studio/mockup-svg";
+import { shapeForGarment } from "@/lib/studio/mockup-svg";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MockupPreview } from "./MockupPreview";
 import { MIN_STITCH_MM, useStitchCheck } from "./useStitchCheck";
@@ -45,7 +45,6 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "price", label: "Price" },
 ];
 
-const SHAPE: Record<string, GarmentShape> = { tee: "tee", oversized_tee: "oversized_tee", hoodie: "hoodie", sweatshirt: "sweatshirt" };
 
 async function api<T>(url: string, body?: unknown, method = "POST"): Promise<T> {
   const res = await fetch(url, {
@@ -58,10 +57,13 @@ async function api<T>(url: string, body?: unknown, method = "POST"): Promise<T> 
   return json;
 }
 
-/** Detected hoodie/sweatshirt/oversized → that garment; any regular tee (or nothing detected) → the first garment in the list. */
+/** Detected hoodie/sweatshirt/oversized → the first garment of that shape; any regular tee (or nothing detected) → the first garment in the list. */
 function garmentKeyFor(analysis: DesignAnalysis | null, garments: Garment[]): string | undefined {
   const t = analysis?.garment.type;
-  if ((t === "hoodie" || t === "sweatshirt" || t === "oversized_tee") && garments.some((g) => g.key === t)) return t;
+  if (t === "hoodie" || t === "sweatshirt" || t === "oversized_tee") {
+    const match = garments.find((g) => shapeForGarment(g.key) === t);
+    if (match) return match.key;
+  }
   return garments[0]?.key;
 }
 
@@ -467,7 +469,7 @@ export function StudioFlow() {
         <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <div className="mx-auto w-full max-w-md">
             <MockupPreview
-              shape={SHAPE[garment.key] ?? "tee"}
+              shape={shapeForGarment(garment.key)}
               colourHex={colourHex}
               placement={placement}
               artworkUrl={artwork.previewUrl}
@@ -615,7 +617,7 @@ export function StudioFlow() {
               </label>
             )}
             <div className="mx-auto w-full max-w-xs">
-              <MockupPreview shape={SHAPE[garment.key] ?? "tee"} colourHex={colourHex} placement={placement} artworkUrl={artwork.previewUrl} widthIn={printW} heightIn={printH} inkHex={printType.colourMode === "single" ? printType.inkHex : undefined} />
+              <MockupPreview shape={shapeForGarment(garment.key)} colourHex={colourHex} placement={placement} artworkUrl={artwork.previewUrl} widthIn={printW} heightIn={printH} inkHex={printType.colourMode === "single" ? printType.inkHex : undefined} />
             </div>
           </div>
           <div className="space-y-5 text-sm">
