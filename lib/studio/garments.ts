@@ -10,7 +10,7 @@ import type { Garment, GarmentColour, GarmentSize } from "./pricing";
 import { qikinkSku } from "./pricing";
 
 export type { Garment, GarmentColour, GarmentSize } from "./pricing";
-export { estimateCostInr, parseQikinkSku, qikinkSku, suggestedPriceInr, QIKINK_SHIPPING, GST_RATE } from "./pricing";
+export { estimateCostInr, fitDetail, fitLabel, parseQikinkSku, qikinkSku, suggestedPriceInr, QIKINK_SHIPPING, GST_RATE } from "./pricing";
 export type { CostBreakdown, PlacementCostInput } from "./pricing";
 
 const STANDARD_COLOURS: GarmentColour[] = [
@@ -108,26 +108,27 @@ export async function updateGarment(key: string, u: GarmentUpdate): Promise<Garm
 }
 
 /**
- * Rewrites the Qikink SKU of every product made on this garment and marks them verified
- * once the garment's codes are confirmed — so confirming once switches on automatic sending.
+ * Rewrites the Qikink SKU of every variant made on this garment and marks them verified once
+ * the garment's codes are confirmed — so confirming once switches on automatic sending.
+ * Works per variant: a product sold on several fits only has its variants on this garment touched.
  */
 export async function resyncGarmentMappings(g: Garment): Promise<{ products: number; variants: number }> {
   const db = createSupabaseServiceClient();
   if (!db) return { products: 0, variants: 0 };
-  const { data: products } = await db.from("products").select("id").eq("studio_json->>garmentKey", g.key);
+  const { data: products } = await db.from("products").select("id, studio_json").not("studio_json", "is", null);
   const now = new Date().toISOString();
+  const status = g.skuConfirmed ? "verified" : "mapped";
+  let productsTouched = 0;
   let variantsUpdated = 0;
   for (const p of products ?? []) {
-    const status = g.skuConfirmed ? "verified" : "mapped";
-    const { data: pps } = await db
-      .from("provider_products")
-      .update({ external_product_id: g.skuPrefix, mapping_status: status, verified_at: g.skuConfirmed ? now : null, updated_at: now })
-      .eq("product_id", p.id)
-      .select("id");
-    const providerProductIds = (pps ?? []).map((r) => r.id);
-    if (providerProductIds.length === 0) continue;
-    const { data: variants } = await db.from("product_variants").select("id, size, color, color_display").eq("product_id", p.id);
-    for (const v of variants ?? []) {
+    const studio = (p.studio_json ?? {}) as { garmentKey?: string };
+    const { data: variants } = await db.from("product_variants").select("id, size, color, color_display, style").eq("product_id", p.id);
+    // Variants published before fits existed have no style: they belong to the product's garment.
+    const mine = (variants ?? []).filter((v) => (v.style ?? studio.garmentKey) === g.key);
+    if (mine.length === 0) continue;
+    productsTouched++;
+    const providerProductIds = new Set<string>();
+    for (const v of mine) {
       const colourName = String(v.color_display || v.color || "").toLowerCase();
       const colour = g.colours.find((c) => c.name.toLowerCase() === colourName);
       const size = g.sizes.find((sz) => sz.size.toLowerCase() === String(v.size).toLowerCase());
@@ -135,15 +136,16 @@ export async function resyncGarmentMappings(g: Garment): Promise<{ products: num
       const update = sku
         ? { external_variant_id: sku, sku, external_sku: sku, provider_color: colour!.name, provider_size: size!.code, mapping_status: status, verified_at: g.skuConfirmed ? now : null, updated_at: now }
         : { mapping_status: "mapped", verified_at: null, updated_at: now };
-      const { data: updated } = await db
-        .from("provider_variants")
-        .update(update)
-        .eq("product_variant_id", v.id)
-        .in("provider_product_id", providerProductIds)
-        .select("id");
+      const { data: updated } = await db.from("provider_variants").update(update).eq("product_variant_id", v.id).select("id, provider_product_id");
+      for (const row of updated ?? []) providerProductIds.add(String(row.provider_product_id));
       variantsUpdated += updated?.length ?? 0;
     }
+    if (providerProductIds.size) {
+      await db
+        .from("provider_products")
+        .update({ external_product_id: g.skuPrefix, mapping_status: status, verified_at: g.skuConfirmed ? now : null, updated_at: now })
+        .in("id", [...providerProductIds]);
+    }
   }
-  return { products: products?.length ?? 0, variants: variantsUpdated };
+  return { products: productsTouched, variants: variantsUpdated };
 }
-

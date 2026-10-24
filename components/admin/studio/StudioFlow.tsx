@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlacementLocation, PrintMethod } from "@/lib/wearables/design-types";
 import type { DesignAnalysis, DetectedDesign } from "@/lib/studio/ai";
-import { estimateCostInr, STUDIO_FX_TO_INR, suggestedPriceInr, type Garment } from "@/lib/studio/pricing";
+import { estimateCostInr, fitDetail, fitLabel, STUDIO_FX_TO_INR, suggestedPriceInr, type Garment } from "@/lib/studio/pricing";
 import { defaultWidthIn, PLACEMENT_LABEL, STUDIO_PRINT_TYPES, type StudioPrintType } from "@/lib/studio/print-types";
 import { shapeForGarment } from "@/lib/studio/mockup-svg";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -67,6 +67,18 @@ function garmentKeyFor(analysis: DesignAnalysis | null, garments: Garment[]): st
   return garments[0]?.key;
 }
 
+/** Tees can be offered in each other's fits (classic, heavyweight, oversized); hoodies/sweatshirts stand alone. */
+function isTee(g: Garment): boolean {
+  const shape = shapeForGarment(g.key);
+  return shape === "tee" || shape === "oversized_tee";
+}
+
+/** Other fits a customer can pick for this design: the other tees that take the same print. */
+function extraFitsFor(main: Garment, garments: Garment[], printKey: PrintMethod): string[] {
+  if (!isTee(main)) return [];
+  return garments.filter((g) => g.key !== main.key && isTee(g) && g.printTypes.includes(printKey)).map((g) => g.key);
+}
+
 function printTypeFor(design: DetectedDesign | undefined): PrintMethod {
   switch (design?.technique) {
     case "embroidery":
@@ -119,6 +131,8 @@ export function StudioFlow() {
   const [widthIn, setWidthIn] = useState(11);
   const [garmentColours, setGarmentColours] = useState<string[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
+  const [extraFits, setExtraFits] = useState<string[]>([]);
+  const [extraPrices, setExtraPrices] = useState<Record<string, string>>({});
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -234,6 +248,7 @@ export function StudioFlow() {
     const match = g.colours.find((c) => c.name.toLowerCase() === detectedColour);
     setGarmentColours([match?.name ?? g.colours[0]!.name]);
     setSizes(g.sizes.map((s) => s.size));
+    setExtraFits(extraFitsFor(g, garments, pt));
     setStep("print");
   };
 
@@ -247,7 +262,10 @@ export function StudioFlow() {
       return kept.length ? kept : [g.colours[0]!.name];
     });
     setSizes(g.sizes.map((s) => s.size));
+    setExtraFits(extraFitsFor(g, garments, g.printTypes.includes(printKey) ? printKey : g.printTypes[0] ?? "dtg"));
   };
+
+  const toggleFit = (key: string) => setExtraFits((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
   const changePrintType = (key: PrintMethod) => {
     const type = STUDIO_PRINT_TYPES.find((t) => t.key === key)!;
@@ -256,6 +274,7 @@ export function StudioFlow() {
     setPlacement(pl);
     setWidthIn(defaultWidthIn(type, pl, aspect));
     if (type.garmentColours) setGarmentColours((prev) => prev.filter((c) => type.garmentColours!.includes(c.toLowerCase())));
+    setExtraFits((prev) => prev.filter((k) => garments.find((g) => g.key === k)?.printTypes.includes(key)));
   };
 
   /* ── pricing ── */
@@ -274,9 +293,20 @@ export function StudioFlow() {
   const profit = priceNum > 0 ? priceNum - costInCurrency : 0;
   const margin = priceNum > 0 ? Math.round((profit / priceNum) * 100) : 0;
 
+  /* ── extra fits: own cost and price each ── */
+  const extraGarments = garments.filter((g) => extraFits.includes(g.key));
+  const extraRows = extraGarments.map((g) => {
+    const c = estimateCostInr(g, garmentColours[0] ?? "Black", [{ printType: printKey, widthIn: printW, heightIn: printH }]);
+    const costCur = currency === "INR" ? c.total : Math.round((c.total / STUDIO_FX_TO_INR) * 100) / 100;
+    const suggested = currency === "INR" ? suggestedPriceInr(c.total, 0.6) : Math.max(5, Math.ceil(suggestedPriceInr(c.total, 0.6) / STUDIO_FX_TO_INR) - 0.01);
+    const value = Number(extraPrices[g.key] ?? suggested);
+    return { g, cost: c.total, costCur, suggested, value, ok: value > 0 };
+  });
+  const extrasPriced = extraRows.every((r) => r.ok);
+
   const goPrice = () => {
     if (!price && quickPrices[1]) setPrice(String(quickPrices[1]));
-    if (!title) setTitle(selectedDesign?.label ? `${selectedDesign.label} ${garment?.name ?? ""}`.trim() : "");
+    if (!title) setTitle(selectedDesign?.label ? (extraFits.length ? `${selectedDesign.label} Tee` : `${selectedDesign.label} ${garment?.name.split("·")[0]?.trim() ?? ""}`.trim()) : "");
     setStep("price");
   };
 
@@ -293,6 +323,7 @@ export function StudioFlow() {
         title,
         description,
         garmentKey: garment.key,
+        fits: [{ garmentKey: garment.key, price: priceNum }, ...extraRows.map((r) => ({ garmentKey: r.g.key, price: r.value }))],
         colours: garmentColours,
         sizes,
         printType: printKey,
@@ -322,6 +353,7 @@ export function StudioFlow() {
     setTitle("");
     setDescription("");
     setPrice("");
+    setExtraPrices({});
     setError(null);
   };
 
@@ -479,7 +511,7 @@ export function StudioFlow() {
             />
           </div>
           <div className="space-y-5 text-sm">
-            <Field label="Garment">
+            <Field label={extraFits.length ? "Main fit (shown first)" : "Garment"}>
               <div className="grid grid-cols-2 gap-1.5">
                 {garments.map((g) => (
                   <button key={g.key} type="button" onClick={() => changeGarment(g.key)} className={`rounded-md border px-3 py-2 text-left ${g.key === garment.key ? "border-white/50 bg-white/10" : "border-white/10 hover:border-white/25"}`}>
@@ -489,6 +521,29 @@ export function StudioFlow() {
                 ))}
               </div>
             </Field>
+            {isTee(garment) && garments.some((g) => g.key !== garment.key && isTee(g)) && (
+              <Field label="Customers can also choose">
+                <div className="space-y-1.5">
+                  {garments
+                    .filter((g) => g.key !== garment.key && isTee(g))
+                    .map((g) => {
+                      const takesPrint = g.printTypes.includes(printKey);
+                      return (
+                        <label key={g.key} className={`flex items-start gap-2 rounded-md border px-3 py-2 ${takesPrint ? "cursor-pointer border-white/10 hover:border-white/25" : "border-white/5 opacity-40"}`}>
+                          <input type="checkbox" disabled={!takesPrint} checked={extraFits.includes(g.key)} onChange={() => toggleFit(g.key)} className="mt-1 accent-white" />
+                          <span>
+                            <span className="text-zinc-100">{fitLabel(g)}</span>
+                            <span className="block text-xs text-zinc-500">
+                              {takesPrint ? `${fitDetail(g)} · Qikink from ₹${g.baseCostInr}` : `Can't take ${printType.label}`}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                </div>
+                <p className="mt-1.5 text-xs text-zinc-500">One product page, a fit picker for the customer. Same artwork, size and placement on every fit.</p>
+              </Field>
+            )}
             <Field label="Print type (sent to Qikink)">
               <div className="space-y-1.5">
                 {allowedPrintTypes.map((t) => (
@@ -624,7 +679,7 @@ export function StudioFlow() {
             <Field label="Currency">
               <div className="flex gap-1.5">
                 {(["INR", "USD"] as const).map((c) => (
-                  <button key={c} type="button" onClick={() => { setCurrency(c); setPrice(""); }} className={`rounded-md border px-3 py-1.5 text-xs ${currency === c ? "border-white/50 bg-white/10 text-white" : "border-white/10 text-zinc-400"}`}>
+                  <button key={c} type="button" onClick={() => { setCurrency(c); setPrice(""); setExtraPrices({}); }} className={`rounded-md border px-3 py-1.5 text-xs ${currency === c ? "border-white/50 bg-white/10 text-white" : "border-white/10 text-zinc-400"}`}>
                     {c === "INR" ? "₹ Rupees" : "$ Dollars"}
                   </button>
                 ))}
@@ -642,7 +697,7 @@ export function StudioFlow() {
                 </div>
               </dl>
             </div>
-            <Field label="Price on your store">
+            <Field label={extraRows.length ? `Price · ${fitLabel(garment)}` : "Price on your store"}>
               <div className="flex items-center gap-2">
                 <span className="text-lg text-zinc-400">{currency === "INR" ? "₹" : "$"}</span>
                 <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} className="w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-2xl font-semibold text-white tabular-nums focus:border-white/30 focus:outline-none" />
@@ -660,14 +715,48 @@ export function StudioFlow() {
                 </p>
               )}
             </Field>
+            {extraRows.length > 0 && (
+              <Field label="Other fits">
+                <div className="space-y-2">
+                  {extraRows.map((r) => {
+                    const keep = r.value > 0 ? r.value - r.costCur : 0;
+                    return (
+                      <div key={r.g.key} className="rounded-md border border-white/10 bg-black/30 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-zinc-100">{fitLabel(r.g)}</div>
+                            <div className="text-xs text-zinc-500">Qikink ≈ ₹{r.cost} · {fitDetail(r.g)}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-zinc-400">{currency === "INR" ? "₹" : "$"}</span>
+                            <input
+                              inputMode="decimal"
+                              aria-label={`Price for ${fitLabel(r.g)}`}
+                              value={extraPrices[r.g.key] ?? String(r.suggested)}
+                              onChange={(e) => setExtraPrices((prev) => ({ ...prev, [r.g.key]: e.target.value.replace(/[^0-9.]/g, "") }))}
+                              className="w-24 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-right text-white tabular-nums focus:border-white/30 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        {r.value > 0 && (
+                          <p className={`mt-1 text-xs ${keep > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                            {keep > 0 ? `Keep ≈ ${money(keep, currency)} (${Math.round((keep / r.value) * 100)}%)` : "Below Qikink's cost"}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Field>
+            )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setStep("print")} className="rounded-md border border-white/15 px-4 py-2 text-sm text-zinc-300 hover:border-white/30">
                 ← Back
               </button>
-              <button type="button" disabled={Boolean(busy) || !(priceNum > 0) || title.trim().length < 3} onClick={() => void publish("draft")} className="rounded-md border border-white/20 px-4 py-2 text-sm text-zinc-200 disabled:opacity-40">
+              <button type="button" disabled={Boolean(busy) || !(priceNum > 0) || !extrasPriced || title.trim().length < 3} onClick={() => void publish("draft")} className="rounded-md border border-white/20 px-4 py-2 text-sm text-zinc-200 disabled:opacity-40">
                 Save draft
               </button>
-              <button type="button" disabled={Boolean(busy) || !(priceNum > 0) || title.trim().length < 3} onClick={() => void publish("active")} className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-40">
+              <button type="button" disabled={Boolean(busy) || !(priceNum > 0) || !extrasPriced || title.trim().length < 3} onClick={() => void publish("active")} className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-black disabled:opacity-40">
                 Publish
               </button>
             </div>
@@ -683,7 +772,7 @@ export function StudioFlow() {
           </p>
           {!published.qikinkReady && (
             <p className="rounded-md border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
-              People can buy it now, but orders won&apos;t go to Qikink until {garment?.name ?? "this garment"}&apos;s SKU codes are confirmed.{" "}
+              People can buy it now, but orders won&apos;t go to Qikink until the SKU codes of {extraFits.length ? "every fit" : garment?.name ?? "this garment"} are confirmed.{" "}
               <Link href="/admin/studio/garments" className="underline">Confirm once</Link> and every product on it starts sending.
             </p>
           )}

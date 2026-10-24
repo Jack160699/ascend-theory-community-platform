@@ -7,6 +7,7 @@ import { SocialLinks } from "@/components/brand/SocialLinks";
 import { useCart } from "@/contexts/cart";
 import { BRAND_ROUTES } from "@/lib/brand/routes";
 import { getCollabTees, type Drop, type DropPrint, type DropShot } from "@/lib/data/drops";
+import { fitOptions, inFit } from "@/lib/drop/fits";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
@@ -30,14 +31,19 @@ export function usePurchase(product: Drop) {
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [product.variants],
   );
+  // Several fits (classic crew, heavyweight, terry oversized…) → pick the fit first; colours and sizes follow it.
+  const fits = useMemo(() => fitOptions(variants, product.studio?.fits), [variants, product.studio?.fits]);
+  const [fit, setFit] = useState<string | null>(() => fits[0]?.key ?? null);
+  const fitVariants = useMemo(() => inFit(variants, fits.length ? fit : null), [variants, fits.length, fit]);
+
   const colours = useMemo(() => {
     const seen = new Map<string, string>();
-    variants.forEach((v) => {
+    fitVariants.forEach((v) => {
       if (!seen.has(v.color)) seen.set(v.color, v.colorDisplay || v.color);
     });
     return Array.from(seen, ([key, label]) => ({ key, label }));
-  }, [variants]);
-  const allSizes = useMemo(() => Array.from(new Set(variants.map((v) => v.size))), [variants]);
+  }, [fitVariants]);
+  const allSizes = useMemo(() => Array.from(new Set(fitVariants.map((v) => v.size))), [fitVariants]);
 
   const [colour, setColour] = useState<string>(() => colours[0]?.key ?? "");
   const [size, setSize] = useState<string | null>(null);
@@ -45,18 +51,32 @@ export function usePurchase(product: Drop) {
   const [added, setAdded] = useState(false);
 
   const sizesInColour = useMemo(
-    () => new Set(variants.filter((v) => v.color === colour).map((v) => v.size)),
-    [variants, colour],
+    () => new Set(fitVariants.filter((v) => v.color === colour).map((v) => v.size)),
+    [fitVariants, colour],
   );
-  const selected = variants.find((v) => v.color === colour && v.size === size);
+  const selected = fitVariants.find((v) => v.color === colour && v.size === size);
 
   const pickColour = useCallback(
     (c: string) => {
       setColour(c);
-      if (size && !variants.some((v) => v.color === c && v.size === size)) setSize(null);
+      if (size && !fitVariants.some((v) => v.color === c && v.size === size)) setSize(null);
     },
-    [size, variants],
+    [size, fitVariants],
   );
+
+  const pickFit = useCallback(
+    (key: string) => {
+      const next = variants.filter((v) => v.style === key);
+      if (!next.length) return;
+      setFit(key);
+      const keepColour = next.some((v) => v.color === colour) ? colour : next[0]!.color;
+      setColour(keepColour);
+      if (size && !next.some((v) => v.color === keepColour && v.size === size)) setSize(null);
+    },
+    [variants, colour, size],
+  );
+  const currentFit = fits.find((f) => f.key === fit);
+  const pricePaise = selected?.pricePaise ?? currentFit?.pricePaise ?? null;
 
   const pick = useCallback((s: string) => {
     setSize(s);
@@ -80,7 +100,7 @@ export function usePurchase(product: Drop) {
         size: v.size,
         color: v.color,
         quantity: 1,
-        title: product.name,
+        title: fits.length && v.styleLabel ? `${product.name} · ${v.styleLabel}` : product.name,
         image: product.print?.portraits[0]?.src ?? product.image,
         priceDisplay: new Intl.NumberFormat("en-US", {
           style: "currency",
@@ -92,7 +112,7 @@ export function usePurchase(product: Drop) {
         openDrawer,
       });
     },
-    [addProduct, product],
+    [addProduct, product, fits.length],
   );
 
   const addToCart = useCallback(() => {
@@ -113,6 +133,10 @@ export function usePurchase(product: Drop) {
 
   return {
     soldOut: variants.length === 0,
+    fits,
+    fit,
+    pickFit,
+    pricePaise,
     colours,
     colour,
     pickColour,
